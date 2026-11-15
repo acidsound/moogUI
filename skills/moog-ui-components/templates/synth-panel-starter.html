@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moog UI Starter Panel</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0d0e11;
+      color: #edeae0;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 24px;
+      padding: 28px 34px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #1b1c20 0%, #101114 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <moog-knob id="tune" label="TUNE" variant="large" min="-5" max="5" value="0" bipolar scale-labels="-5,0,+5" unit="st"></moog-knob>
+    <moog-knob id="mode" label="MODE" variant="pointer" detents scale-labels="LP,BP,HP,NOTCH" value="0"></moog-knob>
+    <moog-knob id="phase" label="PHASE" variant="skirtless" endless wrap min="0" max="360" step="1" unit="°" show-arc></moog-knob>
+    <moog-switch id="enable" label="ACTIVE" color="orange" checked></moog-switch>
+    <moog-switch id="pwr" label="POWER" variant="toggle" checked></moog-switch>
+    <moog-led id="lamp" label="SIGNAL" color="amber" variant="jewel" on></moog-led>
+  </main>
+
+  <script type="module">
+    import '../../moog-ui.js';
+
+    const pwr = document.getElementById('pwr');
+    const lamp = document.getElementById('lamp');
+    pwr.addEventListener('change', (e) => {
+      lamp.on = e.detail.checked;
+    });
+  </script>
+</body>
+</html>

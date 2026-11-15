@@ -62,6 +62,13 @@ Minimoog Model D 하드웨어 컨트롤을 충실하게 재현한 **의존성 �
 <moog-led label="OVERLOAD" color="amber" variant="jewel" on></moog-led>
 ```
 
+## Agent Skill
+
+AI 코딩 에이전트가 이 컴포넌트를 생성·참조·확장할 수 있도록 표준 Agent Skill이 포함되어 있습니다:
+- `skills/moog-ui-components/SKILL.md`
+- `skills/moog-ui-components/references/api-reference.md`
+- `skills/moog-ui-components/templates/synth-panel-starter.html`
+
 ## `<moog-knob>` 주요 속성
 
 | 속성 | 타입 | 기본값 | 설명 |
