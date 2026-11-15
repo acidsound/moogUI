@@ -100,8 +100,7 @@
 
     .synth-faceplate {
       background:
-        radial-gradient(circle at 20% 15%, rgba(255,255,255,0.03) 0%, transparent 50%),
-        repeating-radial-gradient(circle at 0 0, rgba(255,255,255,0.012) 0, rgba(0,0,0,0.02) 1px, transparent 2px),
+        radial-gradient(circle at 20% 15%, rgba(255,255,255,0.035) 0%, transparent 52%),
         linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bottom) 100%);
       padding: 18px 20px 20px;
       border-top: 2px solid #303238;
@@ -1099,21 +1098,15 @@
 /**
  * <moog-knob> — Reusable Minimoog Model D Style Rotary Knob Web Component
  *
- * Authentic recreation of Minimoog Model D hardware knobs:
- *  - variant="large"     : Iconic 6-lobe scalloped skirted knob (eBay 146240621533)
- *  - variant="pointer"   : Winged paddle pointer knob with recessed white nose stripe
- *  - variant="skirtless" : Compact 6-lobe LFO Rate style skirtless knob
- *
- * Supports both bounded potentiometer sweeps (-150°..+150°), discrete rotary
- * switch detents (detents), AND endless/infinite 360° rotary encoders (endless / wrap).
- *
- * @example
- * <moog-knob label="OSCILLATOR TUNE" min="-5" max="5" value="0" bipolar></moog-knob>
- * <moog-knob label="ENCODER" endless wrap min="0" max="360" step="1" unit="°"></moog-knob>
- * <moog-knob label="RANGE" variant="pointer" detents scale-labels="LO,32',16',8',4',2'"></moog-knob>
+ * High-instance-count optimized:
+ *  - Shared adoptedStyleSheets (single parsed CSSStyleSheet across all instances)
+ *  - Memoized 6-lobe & winged-pointer SVG geometry cache
+ *  - CSS `contain: layout style paint` isolation per knob
+ *  - rAF-coalesced pointermove updates & drag-scoped `will-change: transform`
+ *  - Microtask-batched attribute re-renders & lazy hover/focus wheel listeners
  */
 
-const LIGHT_ANGLE_RAD = (-135 * Math.PI) / 180; // Top-left studio key light
+const LIGHT_ANGLE_RAD = (-135 * Math.PI) / 180;
 
 const SIZE_MAP = {
   sm: 72,
@@ -1169,6 +1162,8 @@ const VARIANT_CONFIG = {
   },
 };
 
+const PATH_CACHE = new Map();
+
 function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
 }
@@ -1199,47 +1194,47 @@ function polar(cx, cy, r, rad) {
   return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
 }
 
-/**
- * Generates an SVG path for the 6-lobed scalloped Moog knob profile.
- */
-function buildScallopedPath(cx, cy, rPeak, rValley, samples = 180) {
+function getScallopedPath(cx, cy, rPeak, rValley, samples = 120) {
+  const key = `s:${cx}:${cy}:${rPeak}:${rValley}:${samples}`;
+  let cached = PATH_CACHE.get(key);
+  if (cached) return cached;
+
   const rMid = (rPeak + rValley) / 2;
   const amp = (rPeak - rValley) / 2;
-  const pts = [];
+  const pts = new Array(samples + 1);
   for (let i = 0; i < samples; i++) {
     const u = (i / samples) * Math.PI * 2;
     const harmonic = Math.cos(6 * u) + 0.25 * Math.cos(12 * u) - 0.25;
     const r = rMid + amp * harmonic;
     const theta = u - Math.PI / 2;
     const [x, y] = polar(cx, cy, r, theta);
-    pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+    pts[i] = `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
   }
-  pts.push('Z');
-  return pts.join(' ');
+  pts[samples] = 'Z';
+  cached = pts.join(' ');
+  PATH_CACHE.set(key, cached);
+  return cached;
 }
 
-/**
- * Generates the iconic Minimoog winged pointer knob silhouette:
- * central circular hub + tapered front pointer nose + rear fan-tail thumb wing.
- */
-function buildWingPointerPath(cx, cy, rHub, scale = 1) {
+function getWingPointerPath(cx, cy, rHub, scale = 1) {
+  const key = `w:${cx}:${cy}:${rHub}:${scale}`;
+  let cached = PATH_CACHE.get(key);
+  if (cached) return cached;
+
   const noseTipY = cy - 60.5 * scale;
   const noseTopY = cy - 57.5 * scale;
   const noseHalfTip = 7.2 * scale;
   const noseHalfBase = 9.0 * scale;
   const noseJoinY = cy - Math.sqrt(Math.max(1, rHub * rHub - noseHalfBase * noseHalfBase));
-
-  // Hub right-side junction into rear fan-tail wing
   const wingJoinX = rHub * 0.905;
   const wingJoinY = cy + rHub * 0.425;
-
   const wingCornerX = 25.5 * scale;
   const wingCornerY = cy + 41.5 * scale;
   const wingBackX = 19.5 * scale;
   const wingBackY = cy + 46.8 * scale;
   const wingCenterBackY = cy + 49.0 * scale;
 
-  return [
+  cached = [
     `M${(cx - noseHalfTip).toFixed(2)},${noseTopY.toFixed(2)}`,
     `Q${cx.toFixed(2)},${(noseTipY - 2.5 * scale).toFixed(2)} ${(cx + noseHalfTip).toFixed(2)},${noseTopY.toFixed(2)}`,
     `L${(cx + noseHalfBase).toFixed(2)},${noseJoinY.toFixed(2)}`,
@@ -1252,6 +1247,8 @@ function buildWingPointerPath(cx, cy, rHub, scale = 1) {
     `A${rHub},${rHub} 0 0 1 ${(cx - noseHalfBase).toFixed(2)},${noseJoinY.toFixed(2)}`,
     'Z',
   ].join(' ');
+  PATH_CACHE.set(key, cached);
+  return cached;
 }
 
 function buildArcPath(cx, cy, r, startDeg, endDeg) {
@@ -1267,6 +1264,112 @@ function buildArcPath(cx, cy, r, startDeg, endDeg) {
   const largeArc = Math.abs(diff) > 180 ? 1 : 0;
   const sweep = diff > 0 ? 1 : 0;
   return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} ${sweep} ${x2.toFixed(2)},${y2.toFixed(2)}`;
+}
+
+const KNOB_CSS_TEXT = `
+  :host {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    -webkit-user-select: none;
+    vertical-align: top;
+    contain: layout style paint;
+    --moog-label-color: #e8e6df;
+    --moog-tick-color: rgba(236, 234, 226, 0.85);
+    --moog-tick-minor-color: rgba(236, 234, 226, 0.42);
+    --moog-accent-color: #f59e0b;
+    --moog-value-bg: rgba(10, 10, 12, 0.72);
+    --moog-value-color: #f3efe4;
+    --moog-font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    --moog-mono-font: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    font-family: var(--moog-font-family);
+  }
+  :host([disabled]) { opacity: 0.48; pointer-events: none; }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .knob-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--moog-label-color);
+    text-align: center; line-height: 1.25; max-width: var(--_label-max, 180px);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  .dial-stage {
+    position: relative; width: var(--_widget-w, 145px); height: var(--_widget-w, 145px);
+    cursor: ns-resize; touch-action: pan-y; outline: none; border-radius: 50%;
+  }
+  .skirt-base, .rot-skirt, .rot-body-base, .rot-body-top { touch-action: none; }
+  .dial-stage.is-active .rot-skirt,
+  .dial-stage.is-active .rot-body-base,
+  .dial-stage.is-active .rot-body-top { will-change: transform; }
+  :host([drag-mode="circular"]) .dial-stage { cursor: grab; }
+  :host([drag-mode="circular"]) .dial-stage.is-active { cursor: grabbing; }
+  .dial-stage:focus-visible {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 0 14px rgba(245, 158, 11, 0.35);
+  }
+  svg.knob-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .tick-major { stroke: var(--moog-tick-color); stroke-width: 1.85; stroke-linecap: round; }
+  .tick-major.tick-center { stroke: var(--moog-accent-color); stroke-width: 2.3; }
+  .tick-minor { stroke: var(--moog-tick-minor-color); stroke-width: 1.2; stroke-linecap: round; }
+  .scale-label {
+    fill: var(--moog-tick-color); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.02em; text-anchor: middle; dominant-baseline: central;
+    font-family: var(--moog-font-family);
+  }
+  .arc-track { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 3; stroke-linecap: round; }
+  .arc-fill { fill: none; stroke: var(--moog-accent-color); stroke-width: 3; stroke-linecap: round; }
+  .ridge-glint { stroke: rgba(255, 255, 255, 0.72); stroke-width: 2.6; stroke-linecap: round; pointer-events: none; }
+  .cap-disc {
+    position: absolute; left: var(--_cap-left); top: var(--_cap-top);
+    width: var(--_cap-diam); height: var(--_cap-diam);
+    border-radius: 50%; pointer-events: none; box-sizing: border-box;
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,0.55), inset 0 -1.5px 2.5px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.85);
+  }
+  .cap-disc.cap-silver {
+    background:
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06) 0px, rgba(0,0,0,0.055) 1px, transparent 2px),
+      conic-gradient(from -38deg, #cfd4d9 0deg, #f7f9fb 26deg, #949ba3 66deg, #777e86 98deg, #c7cdd3 145deg, #f4f7fa 188deg, #8f969e 232deg, #727980 266deg, #c3c9cf 314deg, #cfd4d9 360deg);
+  }
+  .cap-disc.cap-brass {
+    background:
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.055) 0px, rgba(0,0,0,0.055) 1px, transparent 2px),
+      conic-gradient(from -38deg, #c9a65b 0deg, #f6e3a8 26deg, #8c6f32 66deg, #6e5420 98deg, #bfa054 145deg, #f2dc9b 188deg, #886a2f 232deg, #664e1c 266deg, #ba994e 314deg, #c9a65b 360deg);
+  }
+  .cap-disc.cap-black {
+    background:
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.035) 0px, rgba(0,0,0,0.08) 1px, transparent 2px),
+      conic-gradient(from -38deg, #2a2c30 0deg, #464950 26deg, #1b1c20 66deg, #141518 98deg, #27292e 145deg, #41444a 188deg, #191a1e 232deg, #121316 266deg, #25272b 314deg, #2a2c30 360deg);
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,0.16), inset 0 -1.5px 2.5px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,0,0,0.95);
+  }
+  .cap-disc::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 36% 32%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 58%, rgba(0,0,0,0.16) 100%);
+  }
+  .knob-value {
+    font-family: var(--moog-mono-font); font-size: 11px; font-weight: 600;
+    color: var(--moog-value-color); background: var(--moog-value-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px;
+    padding: 1.5px 7px; min-width: 48px; text-align: center; letter-spacing: 0.03em;
+  }
+  .dial-stage.is-active ~ .knob-value,
+  .dial-stage:focus-visible ~ .knob-value { border-color: rgba(245, 158, 11, 0.6); }
+  .knob-value.only-hover { opacity: 0; transition: opacity 150ms ease; }
+  .wrap:hover .knob-value.only-hover,
+  .dial-stage.is-active ~ .knob-value.only-hover,
+  .dial-stage:focus-visible ~ .knob-value.only-hover { opacity: 1; }
+`;
+
+let sharedKnobSheet = null;
+function getKnobSheet() {
+  if (!sharedKnobSheet && typeof CSSStyleSheet !== 'undefined') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(KNOB_CSS_TEXT);
+      sharedKnobSheet = sheet;
+    } catch (_) {
+      sharedKnobSheet = null;
+    }
+  }
+  return sharedKnobSheet;
 }
 
 class MoogKnob extends HTMLElement {
@@ -1308,7 +1411,7 @@ class MoogKnob extends HTMLElement {
     this.attachShadow({ mode: 'open' });
 
     this._value = 0;
-    this._continuousValue = 0; // tracks unwrapped value for smooth endless rotation
+    this._continuousValue = 0;
     this._defaultValue = null;
     this._dragging = false;
     this._dragStartY = 0;
@@ -1316,6 +1419,11 @@ class MoogKnob extends HTMLElement {
     this._dragStartContinuous = 0;
     this._prevCircularAngle = 0;
     this._formatFn = null;
+    this._reflectingValue = false;
+    this._renderPending = false;
+    this._moveRaf = null;
+    this._pendingPointerEvent = null;
+    this._lastRenderedDeg = NaN;
     this._uid = `mk-${Math.random().toString(36).slice(2, 9)}`;
 
     this._onPointerDown = this._onPointerDown.bind(this);
@@ -1324,6 +1432,8 @@ class MoogKnob extends HTMLElement {
     this._onDblClick = this._onDblClick.bind(this);
     this._onWheel = this._onWheel.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
+    this._onEngageWheel = this._onEngageWheel.bind(this);
+    this._onDisengageWheel = this._onDisengageWheel.bind(this);
 
     this._rendered = false;
   }
@@ -1351,13 +1461,15 @@ class MoogKnob extends HTMLElement {
 
   disconnectedCallback() {
     this._cleanupDragListeners();
+    this._onDisengageWheel();
+    if (this._moveRaf) cancelAnimationFrame(this._moveRaf);
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal) return;
 
     if (name === 'value') {
-      if (!this._rendered) return;
+      if (!this._rendered || this._reflectingValue) return;
       const rawNum = Number(newVal);
       const next = this._sanitize(rawNum);
       if (next !== this._value) {
@@ -1374,12 +1486,21 @@ class MoogKnob extends HTMLElement {
 
     if (this._rendered) {
       this._value = this._sanitize(this._value);
-      this._render();
-      this._updateVisuals();
+      this._scheduleRender();
     }
   }
 
-  // ---- Public Properties ----
+  _scheduleRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    queueMicrotask(() => {
+      this._renderPending = false;
+      if (!this.isConnected) return;
+      this._value = this._sanitize(this._value);
+      this._render();
+      this._updateVisuals();
+    });
+  }
 
   get value() {
     return this._value;
@@ -1390,9 +1511,15 @@ class MoogKnob extends HTMLElement {
     if (next !== this._value) {
       this._value = next;
       this._continuousValue = next;
-      this.setAttribute('value', String(next));
+      this._reflectValueAttr(next);
       if (this._rendered) this._updateVisuals();
     }
+  }
+
+  _reflectValueAttr(val) {
+    this._reflectingValue = true;
+    this.setAttribute('value', String(val));
+    this._reflectingValue = false;
   }
 
   get min() {
@@ -1400,34 +1527,26 @@ class MoogKnob extends HTMLElement {
     if (dets && !this.hasAttribute('min')) return 0;
     return parseNumAttr(this, 'min', 0);
   }
-  set min(v) {
-    this.setAttribute('min', String(v));
-  }
+  set min(v) { this.setAttribute('min', String(v)); }
 
   get max() {
     const dets = this._getDetentLabels();
     if (dets && !this.hasAttribute('max')) return Math.max(0, dets.length - 1);
     return parseNumAttr(this, 'max', 10);
   }
-  set max(v) {
-    this.setAttribute('max', String(v));
-  }
+  set max(v) { this.setAttribute('max', String(v)); }
 
   get step() {
     if (this.hasAttribute('detents')) {
       const detVal = this.getAttribute('detents');
       const n = Number(detVal);
-      if (Number.isFinite(n) && n > 1) {
-        return (this.max - this.min) / (n - 1);
-      }
+      if (Number.isFinite(n) && n > 1) return (this.max - this.min) / (n - 1);
       return 1;
     }
     const v = parseNumAttr(this, 'step', this.endless ? 1 : 0.01);
     return v > 0 ? v : 0.01;
   }
-  set step(v) {
-    this.setAttribute('step', String(v));
-  }
+  set step(v) { this.setAttribute('step', String(v)); }
 
   get defaultValue() {
     if (this._defaultValue !== null && Number.isFinite(this._defaultValue)) {
@@ -1440,29 +1559,14 @@ class MoogKnob extends HTMLElement {
     this.setAttribute('default-value', String(v));
   }
 
-  get bipolar() {
-    return this.hasAttribute('bipolar') && this.getAttribute('bipolar') !== 'false';
-  }
-  set bipolar(flag) {
-    if (flag) this.setAttribute('bipolar', '');
-    else this.removeAttribute('bipolar');
-  }
+  get bipolar() { return this.hasAttribute('bipolar') && this.getAttribute('bipolar') !== 'false'; }
+  set bipolar(flag) { if (flag) this.setAttribute('bipolar', ''); else this.removeAttribute('bipolar'); }
 
-  get endless() {
-    return this.hasAttribute('endless') && this.getAttribute('endless') !== 'false';
-  }
-  set endless(flag) {
-    if (flag) this.setAttribute('endless', '');
-    else this.removeAttribute('endless');
-  }
+  get endless() { return this.hasAttribute('endless') && this.getAttribute('endless') !== 'false'; }
+  set endless(flag) { if (flag) this.setAttribute('endless', ''); else this.removeAttribute('endless'); }
 
-  get wrap() {
-    return this.hasAttribute('wrap') && this.getAttribute('wrap') !== 'false';
-  }
-  set wrap(flag) {
-    if (flag) this.setAttribute('wrap', '');
-    else this.removeAttribute('wrap');
-  }
+  get wrap() { return this.hasAttribute('wrap') && this.getAttribute('wrap') !== 'false'; }
+  set wrap(flag) { if (flag) this.setAttribute('wrap', ''); else this.removeAttribute('wrap'); }
 
   get revolution() {
     const custom = parseNumAttr(this, 'revolution', 0);
@@ -1470,40 +1574,27 @@ class MoogKnob extends HTMLElement {
     const span = this.max - this.min;
     return span > 0 ? span : 24;
   }
-  set revolution(v) {
-    this.setAttribute('revolution', String(v));
-  }
+  set revolution(v) { this.setAttribute('revolution', String(v)); }
 
-  get disabled() {
-    return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false';
-  }
-  set disabled(flag) {
-    if (flag) this.setAttribute('disabled', '');
-    else this.removeAttribute('disabled');
-  }
+  get disabled() { return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false'; }
+  set disabled(flag) { if (flag) this.setAttribute('disabled', ''); else this.removeAttribute('disabled'); }
 
   get variant() {
     const v = this.getAttribute('variant');
     return VARIANT_CONFIG[v] ? v : 'large';
   }
-  set variant(v) {
-    this.setAttribute('variant', v);
-  }
+  set variant(v) { this.setAttribute('variant', v); }
 
   get cap() {
     const c = this.getAttribute('cap');
     return c === 'brass' || c === 'black' ? c : 'silver';
   }
-  set cap(c) {
-    this.setAttribute('cap', c);
-  }
+  set cap(c) { this.setAttribute('cap', c); }
 
-  get format() {
-    return this._formatFn;
-  }
+  get format() { return this._formatFn; }
   set format(fn) {
     this._formatFn = typeof fn === 'function' ? fn : null;
-    if (this._rendered) this._updateVisuals();
+    if (this._rendered) this._updateVisuals(true);
   }
 
   get normalized() {
@@ -1527,9 +1618,7 @@ class MoogKnob extends HTMLElement {
       const idx = Math.round(this.normalized * (dets.length - 1));
       if (dets[idx] !== undefined) return dets[idx];
     }
-    if (this._formatFn) {
-      return String(this._formatFn(this._value));
-    }
+    if (this._formatFn) return String(this._formatFn(this._value));
     const unit = this.getAttribute('unit') || '';
     const step = this.step;
     const dec = step >= 1 ? 0 : Math.min(2, (String(step).split('.')[1] || '').length);
@@ -1544,8 +1633,6 @@ class MoogKnob extends HTMLElement {
     this._commitValue(def, true);
   }
 
-  // ---- Internal Helpers ----
-
   _getSizePx() {
     const raw = this.getAttribute('size') || 'md';
     if (SIZE_MAP[raw]) return SIZE_MAP[raw];
@@ -1553,13 +1640,8 @@ class MoogKnob extends HTMLElement {
     return Number.isFinite(n) && n >= 36 ? n : SIZE_MAP.md;
   }
 
-  _getMinAngle() {
-    return parseNumAttr(this, 'min-angle', -150);
-  }
-
-  _getMaxAngle() {
-    return parseNumAttr(this, 'max-angle', 150);
-  }
+  _getMinAngle() { return parseNumAttr(this, 'min-angle', -150); }
+  _getMaxAngle() { return parseNumAttr(this, 'max-angle', 150); }
 
   _getScaleLabels() {
     const raw = this.getAttribute('scale-labels');
@@ -1578,9 +1660,7 @@ class MoogKnob extends HTMLElement {
     const labels = this._getScaleLabels();
     if (labels && labels.length > 1) return labels;
     const n = Number(this.getAttribute('detents'));
-    if (Number.isFinite(n) && n > 1) {
-      return Array.from({ length: n }, (_, i) => String(i + 1));
-    }
+    if (Number.isFinite(n) && n > 1) return Array.from({ length: n }, (_, i) => String(i + 1));
     return null;
   }
 
@@ -1600,8 +1680,7 @@ class MoogKnob extends HTMLElement {
 
   _valueToAngle(val) {
     if (this.endless) {
-      const rev = this.revolution;
-      return ((this._continuousValue - this.min) / rev) * 360;
+      return ((this._continuousValue - this.min) / this.revolution) * 360;
     }
     const minA = this._getMinAngle();
     const maxA = this._getMaxAngle();
@@ -1614,32 +1693,25 @@ class MoogKnob extends HTMLElement {
   _setValueInternal(nextVal, emitInput = true) {
     const prev = this._value;
     if (this.endless) {
-      const steppedCont = roundToStep(nextVal, this.step, this.wrap ? this.min : 0);
-      this._continuousValue = steppedCont;
+      this._continuousValue = roundToStep(nextVal, this.step, this.wrap ? this.min : 0);
     }
     const sanitized = this._sanitize(nextVal);
     if (sanitized === prev && !this.endless) return false;
-    if (this.endless && sanitized === prev && !emitInput) return false;
-
     const delta = sanitized - prev;
     if (this.endless && delta === 0) return false;
 
     this._value = sanitized;
     if (!this.endless) this._continuousValue = sanitized;
-    this.setAttribute('value', String(sanitized));
+    this._reflectValueAttr(sanitized);
     this._updateVisuals();
-    if (emitInput) {
-      this._emit('input', delta);
-    }
+    if (emitInput) this._emit('input', delta);
     return true;
   }
 
   _commitValue(nextVal, emitBoth = false) {
     const prev = this._value;
     const changed = this._setValueInternal(nextVal, emitBoth);
-    if (changed || emitBoth) {
-      this._emit('change', this._value - prev);
-    }
+    if (changed || emitBoth) this._emit('change', this._value - prev);
   }
 
   _emit(type, delta = 0) {
@@ -1659,8 +1731,6 @@ class MoogKnob extends HTMLElement {
     );
   }
 
-  // ---- Interaction Handlers ----
-
   _onPointerDown(e) {
     if (this.disabled || e.button > 0) return;
     e.preventDefault();
@@ -1673,9 +1743,7 @@ class MoogKnob extends HTMLElement {
     this._dragMoved = false;
     this._dialEl.classList.add('is-active');
 
-    try {
-      this._dialEl.setPointerCapture(e.pointerId);
-    } catch (_) {}
+    try { this._dialEl.setPointerCapture(e.pointerId); } catch (_) {}
 
     if (e.altKey) {
       this.reset();
@@ -1683,11 +1751,8 @@ class MoogKnob extends HTMLElement {
     }
 
     if (this.getAttribute('drag-mode') === 'circular') {
-      if (this.endless) {
-        this._prevCircularAngle = this._pointerAngleDeg(e);
-      } else {
-        this._applyCircularPointer(e);
-      }
+      if (this.endless) this._prevCircularAngle = this._pointerAngleDeg(e);
+      else this._applyCircularPointer(e);
     }
 
     window.addEventListener('pointermove', this._onPointerMove);
@@ -1707,15 +1772,33 @@ class MoogKnob extends HTMLElement {
   _onPointerMove(e) {
     if (!this._dragging) return;
     this._dragMoved = true;
+    this._pendingPointerEvent = { clientX: e.clientX, clientY: e.clientY, shiftKey: e.shiftKey };
+
+    if (typeof requestAnimationFrame === 'undefined') {
+      this._flushPointerMove();
+      return;
+    }
+    if (!this._moveRaf) {
+      this._moveRaf = requestAnimationFrame(() => {
+        this._moveRaf = null;
+        this._flushPointerMove();
+      });
+    }
+  }
+
+  _flushPointerMove() {
+    if (!this._dragging || !this._pendingPointerEvent) return;
+    const ev = this._pendingPointerEvent;
+    this._pendingPointerEvent = null;
 
     if (this.getAttribute('drag-mode') === 'circular') {
-      this._applyCircularPointer(e);
+      this._applyCircularPointer(ev);
       return;
     }
 
     const baseSens = parseNumAttr(this, 'sensitivity', 170);
-    const sens = e.shiftKey ? baseSens * 6 : baseSens;
-    const dy = this._dragStartY - e.clientY;
+    const sens = ev.shiftKey ? baseSens * 6 : baseSens;
+    const dy = this._dragStartY - ev.clientY;
     const span = this.endless ? this.revolution : this.max - this.min;
     const delta = (dy / sens) * span;
     const base = this.endless ? this._dragStartContinuous : this._dragStartValue;
@@ -1742,11 +1825,14 @@ class MoogKnob extends HTMLElement {
 
   _onPointerUp(e) {
     if (!this._dragging) return;
+    if (this._moveRaf) {
+      cancelAnimationFrame(this._moveRaf);
+      this._moveRaf = null;
+    }
+    this._flushPointerMove();
     this._dragging = false;
     this._dialEl.classList.remove('is-active');
-    try {
-      this._dialEl.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    try { this._dialEl.releasePointerCapture(e.pointerId); } catch (_) {}
     this._cleanupDragListeners();
     if (this._dragMoved && this._value !== this._dragStartValue) {
       this._emit('change', this._value - this._dragStartValue);
@@ -1757,6 +1843,20 @@ class MoogKnob extends HTMLElement {
     window.removeEventListener('pointermove', this._onPointerMove);
     window.removeEventListener('pointerup', this._onPointerUp);
     window.removeEventListener('pointercancel', this._onPointerUp);
+  }
+
+  _onEngageWheel() {
+    if (this._dialEl && !this._wheelBound) {
+      this._wheelBound = true;
+      this._dialEl.addEventListener('wheel', this._onWheel, { passive: false });
+    }
+  }
+
+  _onDisengageWheel() {
+    if (this._dialEl && this._wheelBound) {
+      this._wheelBound = false;
+      this._dialEl.removeEventListener('wheel', this._onWheel);
+    }
   }
 
   _onDblClick(e) {
@@ -1796,27 +1896,14 @@ class MoogKnob extends HTMLElement {
     let next = base;
     switch (e.key) {
       case 'ArrowUp':
-      case 'ArrowRight':
-        next = base + delta;
-        break;
+      case 'ArrowRight': next = base + delta; break;
       case 'ArrowDown':
-      case 'ArrowLeft':
-        next = base - delta;
-        break;
-      case 'PageUp':
-        next = base + coarseStep;
-        break;
-      case 'PageDown':
-        next = base - coarseStep;
-        break;
-      case 'Home':
-        next = this.min;
-        break;
-      case 'End':
-        next = this.endless ? base + this.revolution : this.max;
-        break;
-      default:
-        handled = false;
+      case 'ArrowLeft': next = base - delta; break;
+      case 'PageUp': next = base + coarseStep; break;
+      case 'PageDown': next = base - coarseStep; break;
+      case 'Home': next = this.min; break;
+      case 'End': next = this.endless ? base + this.revolution : this.max; break;
+      default: handled = false;
     }
 
     if (handled) {
@@ -1824,8 +1911,6 @@ class MoogKnob extends HTMLElement {
       this._commitValue(next, true);
     }
   }
-
-  // ---- Rendering ----
 
   _render() {
     const cfg = VARIANT_CONFIG[this.variant];
@@ -1840,22 +1925,18 @@ class MoogKnob extends HTMLElement {
 
     const minA = isEndless ? 0 : this._getMinAngle();
     const maxA = isEndless ? 360 : this._getMaxAngle();
-
     const cx = 110;
     const cy = 110;
     const bodyCy = cy - 2;
     const baseCy = bodyCy + cfg.bodyDy;
 
-    // Build dial ticks & labels
     const labels = this._getScaleLabels();
     const tickCountAttr = this.getAttribute('ticks');
     const majorCount = labels
       ? labels.length
       : tickCountAttr !== null
         ? Math.max(0, parseNumAttr(this, 'ticks', isEndless ? 12 : 11))
-        : isEndless
-          ? 12
-          : 11;
+        : isEndless ? 12 : 11;
     const minorPerGap = this.hasAttribute('detents')
       ? 0
       : Math.max(0, parseNumAttr(this, 'minor-ticks', 1));
@@ -1866,8 +1947,8 @@ class MoogKnob extends HTMLElement {
       const rTickOutMajor = cfg.hasSkirt ? 83 : 67;
       const rTickOutMinor = cfg.hasSkirt ? 78.5 : 62.5;
       const rLabel = cfg.hasSkirt ? 96 : 80;
-
       const denom = isEndless ? majorCount : majorCount - 1;
+
       for (let i = 0; i < majorCount; i++) {
         const t = i / denom;
         const deg = minA + t * (maxA - minA);
@@ -1895,331 +1976,51 @@ class MoogKnob extends HTMLElement {
       }
     }
 
-    // Build body paths depending on variant (winged pointer vs 6-lobe scalloped)
     let basePathD = '';
     let topPathD = '';
     let ridgeHighlightsSvg = '';
     let topIndicatorSvg = '';
 
     if (cfg.isWingPointer) {
-      basePathD = buildWingPointerPath(cx, baseCy, cfg.rHubBase, 1.03);
-      topPathD = buildWingPointerPath(cx, bodyCy, cfg.rHubTop, 1.0);
-
-      // Iconic white recessed pointer stripe along the front nose + vertical tip bevel
+      basePathD = getWingPointerPath(cx, baseCy, cfg.rHubBase, 1.03);
+      topPathD = getWingPointerPath(cx, bodyCy, cfg.rHubTop, 1.0);
       const stripeW = 4.2;
       const stripeTopY = bodyCy - 59.0;
       const stripeBotY = bodyCy - cfg.rCap - 1.5;
       topIndicatorSvg = `
-        <rect
-          x="${(cx - stripeW / 2).toFixed(2)}"
-          y="${stripeTopY.toFixed(2)}"
-          width="${stripeW}"
-          height="${(stripeBotY - stripeTopY).toFixed(2)}"
-          rx="1.6"
-          fill="${this._escapeHtml(dotColor)}"
-          stroke="rgba(0,0,0,0.65)"
-          stroke-width="0.6"
-        />
+        <rect x="${(cx - stripeW / 2).toFixed(2)}" y="${stripeTopY.toFixed(2)}" width="${stripeW}" height="${(stripeBotY - stripeTopY).toFixed(2)}" rx="1.6" fill="${this._escapeHtml(dotColor)}" stroke="rgba(0,0,0,0.65)" stroke-width="0.6" />
       `;
-      // Nose vertical stripe highlight in base layer
       ridgeHighlightsSvg = `
-        <line
-          class="pointer-nose-bevel"
-          x1="${cx}"
-          y1="${(bodyCy - 59.0).toFixed(2)}"
-          x2="${cx}"
-          y2="${(baseCy - 60.5).toFixed(2)}"
-          stroke="${this._escapeHtml(dotColor)}"
-          stroke-width="3.6"
-          stroke-linecap="round"
-          opacity="0.88"
-        />
+        <line class="pointer-nose-bevel" x1="${cx}" y1="${(bodyCy - 59.0).toFixed(2)}" x2="${cx}" y2="${(baseCy - 60.5).toFixed(2)}" stroke="${this._escapeHtml(dotColor)}" stroke-width="3.6" stroke-linecap="round" opacity="0.88" />
       `;
     } else {
-      basePathD = buildScallopedPath(cx, baseCy, cfg.rBodyBasePeak, cfg.rBodyBaseValley);
-      topPathD = buildScallopedPath(cx, bodyCy, cfg.rBodyTopPeak, cfg.rBodyTopValley);
+      basePathD = getScallopedPath(cx, baseCy, cfg.rBodyBasePeak, cfg.rBodyBaseValley);
+      topPathD = getScallopedPath(cx, bodyCy, cfg.rBodyTopPeak, cfg.rBodyTopValley);
       for (let i = 0; i < 6; i++) {
         ridgeHighlightsSvg += `<line class="ridge-glint" data-lobe="${i}" x1="0" y1="0" x2="0" y2="0" />`;
       }
       topIndicatorSvg = `
-        <circle
-          cx="${cx}"
-          cy="${bodyCy - cfg.rDotTop}"
-          r="${cfg.dotTopRadius}"
-          fill="${this._escapeHtml(dotColor)}"
-          stroke="rgba(0,0,0,0.75)"
-          stroke-width="0.7"
-        />
+        <circle cx="${cx}" cy="${bodyCy - cfg.rDotTop}" r="${cfg.dotTopRadius}" fill="${this._escapeHtml(dotColor)}" stroke="rgba(0,0,0,0.75)" stroke-width="0.7" />
       `;
     }
 
-    const capDiamPct = ((cfg.rCap * 2) / 220) * 100;
-    const capLeftPct = ((cx - cfg.rCap) / 220) * 100;
-    const capTopPct = ((bodyCy - cfg.rCap) / 220) * 100;
+    const capDiamPct = (((cfg.rCap * 2) / 220) * 100).toFixed(3) + '%';
+    const capLeftPct = (((cx - cfg.rCap) / 220) * 100).toFixed(3) + '%';
+    const capTopPct = (((bodyCy - cfg.rCap) / 220) * 100).toFixed(3) + '%';
     const widgetWidth = Math.round(sizePx * 1.48);
 
     const uid = this._uid;
     const labelHtml = label ? `<div class="knob-label">${this._escapeHtml(label)}</div>` : '';
-    const valueHtml =
-      showValueMode !== 'never'
-        ? `<div class="knob-value ${showValueMode === 'hover' ? 'only-hover' : ''}" part="value"></div>`
-        : '';
+    const valueHtml = showValueMode !== 'never'
+      ? `<div class="knob-value ${showValueMode === 'hover' ? 'only-hover' : ''}" part="value"></div>`
+      : '';
+
+    const sheet = getKnobSheet();
+    const useAdopted = sheet && this.shadowRoot.adoptedStyleSheets !== undefined;
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          user-select: none;
-          -webkit-user-select: none;
-          vertical-align: top;
-          --moog-label-color: #e8e6df;
-          --moog-tick-color: rgba(236, 234, 226, 0.85);
-          --moog-tick-minor-color: rgba(236, 234, 226, 0.42);
-          --moog-accent-color: #f59e0b;
-          --moog-value-bg: rgba(10, 10, 12, 0.72);
-          --moog-value-color: #f3efe4;
-          --moog-font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-          --moog-mono-font: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-          font-family: var(--moog-font-family);
-        }
-
-        :host([disabled]) {
-          opacity: 0.48;
-          pointer-events: none;
-        }
-
-        .wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 3px;
-        }
-
-        .knob-label {
-          font-size: 10.5px;
-          font-weight: 700;
-          letter-spacing: 0.11em;
-          text-transform: uppercase;
-          color: var(--moog-label-color);
-          text-align: center;
-          line-height: 1.25;
-          max-width: ${widgetWidth + 16}px;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-        }
-
-        .dial-stage {
-          position: relative;
-          width: ${widgetWidth}px;
-          height: ${widgetWidth}px;
-          cursor: ns-resize;
-          touch-action: none;
-          outline: none;
-          border-radius: 50%;
-          transition: filter 120ms ease;
-        }
-
-        :host([drag-mode="circular"]) .dial-stage {
-          cursor: grab;
-        }
-        :host([drag-mode="circular"]) .dial-stage.is-active {
-          cursor: grabbing;
-        }
-
-        .dial-stage:focus-visible {
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 0 14px rgba(245, 158, 11, 0.35);
-        }
-
-        svg.knob-svg {
-          width: 100%;
-          height: 100%;
-          display: block;
-          overflow: visible;
-        }
-
-        .tick-major {
-          stroke: var(--moog-tick-color);
-          stroke-width: 1.85;
-          stroke-linecap: round;
-        }
-
-        .tick-major.tick-center {
-          stroke: var(--moog-accent-color);
-          stroke-width: 2.3;
-        }
-
-        .tick-minor {
-          stroke: var(--moog-tick-minor-color);
-          stroke-width: 1.2;
-          stroke-linecap: round;
-        }
-
-        .scale-label {
-          fill: var(--moog-tick-color);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          text-anchor: middle;
-          dominant-baseline: central;
-          font-family: var(--moog-font-family);
-        }
-
-        .arc-track {
-          fill: none;
-          stroke: rgba(255, 255, 255, 0.1);
-          stroke-width: 3;
-          stroke-linecap: round;
-        }
-
-        .arc-fill {
-          fill: none;
-          stroke: var(--moog-accent-color);
-          stroke-width: 3;
-          stroke-linecap: round;
-          filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.55));
-        }
-
-        .ridge-glint {
-          stroke: rgba(255, 255, 255, 0.72);
-          stroke-width: 2.6;
-          stroke-linecap: round;
-          pointer-events: none;
-        }
-
-        /* Radial Brushed Aluminum / Brass / Black Top Cap */
-        .cap-disc {
-          position: absolute;
-          left: ${capLeftPct.toFixed(3)}%;
-          top: ${capTopPct.toFixed(3)}%;
-          width: ${capDiamPct.toFixed(3)}%;
-          height: ${capDiamPct.toFixed(3)}%;
-          border-radius: 50%;
-          pointer-events: none;
-          box-sizing: border-box;
-          box-shadow:
-            inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-            inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.55),
-            0 0 0 1px rgba(0, 0, 0, 0.85);
-        }
-
-        .cap-disc.cap-silver {
-          background:
-            repeating-radial-gradient(
-              circle at 50% 50%,
-              rgba(255, 255, 255, 0.065) 0px,
-              rgba(0, 0, 0, 0.06) 1px,
-              transparent 2px
-            ),
-            conic-gradient(
-              from -38deg,
-              #cfd4d9 0deg,
-              #f7f9fb 26deg,
-              #949ba3 66deg,
-              #777e86 98deg,
-              #c7cdd3 145deg,
-              #f4f7fa 188deg,
-              #8f969e 232deg,
-              #727980 266deg,
-              #c3c9cf 314deg,
-              #cfd4d9 360deg
-            );
-        }
-
-        .cap-disc.cap-brass {
-          background:
-            repeating-radial-gradient(
-              circle at 50% 50%,
-              rgba(255, 255, 255, 0.06) 0px,
-              rgba(0, 0, 0, 0.06) 1px,
-              transparent 2px
-            ),
-            conic-gradient(
-              from -38deg,
-              #c9a65b 0deg,
-              #f6e3a8 26deg,
-              #8c6f32 66deg,
-              #6e5420 98deg,
-              #bfa054 145deg,
-              #f2dc9b 188deg,
-              #886a2f 232deg,
-              #664e1c 266deg,
-              #ba994e 314deg,
-              #c9a65b 360deg
-            );
-        }
-
-        .cap-disc.cap-black {
-          background:
-            repeating-radial-gradient(
-              circle at 50% 50%,
-              rgba(255, 255, 255, 0.035) 0px,
-              rgba(0, 0, 0, 0.08) 1px,
-              transparent 2px
-            ),
-            conic-gradient(
-              from -38deg,
-              #2a2c30 0deg,
-              #464950 26deg,
-              #1b1c20 66deg,
-              #141518 98deg,
-              #27292e 145deg,
-              #41444a 188deg,
-              #191a1e 232deg,
-              #121316 266deg,
-              #25272b 314deg,
-              #2a2c30 360deg
-            );
-          box-shadow:
-            inset 0 1px 1.5px rgba(255, 255, 255, 0.16),
-            inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.8),
-            0 0 0 1px rgba(0, 0, 0, 0.95);
-        }
-
-        .cap-disc::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          background: radial-gradient(
-            circle at 36% 32%,
-            rgba(255, 255, 255, 0.22) 0%,
-            rgba(255, 255, 255, 0) 58%,
-            rgba(0, 0, 0, 0.16) 100%
-          );
-        }
-
-        .knob-value {
-          font-family: var(--moog-mono-font);
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--moog-value-color);
-          background: var(--moog-value-bg);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
-          padding: 1.5px 7px;
-          min-width: 48px;
-          text-align: center;
-          letter-spacing: 0.03em;
-          transition: opacity 150ms ease, border-color 150ms ease;
-        }
-
-        .dial-stage.is-active ~ .knob-value,
-        .dial-stage:focus-visible ~ .knob-value {
-          border-color: rgba(245, 158, 11, 0.6);
-        }
-
-        .knob-value.only-hover {
-          opacity: 0;
-        }
-        .wrap:hover .knob-value.only-hover,
-        .dial-stage.is-active ~ .knob-value.only-hover,
-        .dial-stage:focus-visible ~ .knob-value.only-hover {
-          opacity: 1;
-        }
-      </style>
-
-      <div class="wrap">
+      ${useAdopted ? '' : `<style>${KNOB_CSS_TEXT}</style>`}
+      <div class="wrap" style="--_widget-w:${widgetWidth}px;--_label-max:${widgetWidth + 16}px;--_cap-left:${capLeftPct};--_cap-top:${capTopPct};--_cap-diam:${capDiamPct};">
         ${labelPos === 'top' ? labelHtml : ''}
         <div
           class="dial-stage"
@@ -2237,42 +2038,38 @@ class MoogKnob extends HTMLElement {
                 <stop offset="86%" stop-color="#000000" stop-opacity="0.38" />
                 <stop offset="100%" stop-color="#000000" stop-opacity="0" />
               </radialGradient>
-
               <radialGradient id="${uid}-skirt-grad" cx="38%" cy="34%" r="65%">
                 <stop offset="0%" stop-color="#3c3f45" />
                 <stop offset="45%" stop-color="#191a1d" />
                 <stop offset="82%" stop-color="#0a0a0c" />
                 <stop offset="100%" stop-color="#1e2024" />
               </radialGradient>
-
               <linearGradient id="${uid}-skirt-rim" x1="15%" y1="10%" x2="85%" y2="90%">
                 <stop offset="0%" stop-color="rgba(255,255,255,0.42)" />
                 <stop offset="35%" stop-color="rgba(255,255,255,0.08)" />
                 <stop offset="70%" stop-color="rgba(0,0,0,0.5)" />
                 <stop offset="100%" stop-color="rgba(255,255,255,0.16)" />
               </linearGradient>
-
               <linearGradient id="${uid}-sidewall" x1="18%" y1="12%" x2="84%" y2="88%">
                 <stop offset="0%" stop-color="#2c2f35" />
                 <stop offset="42%" stop-color="#121316" />
                 <stop offset="100%" stop-color="#060608" />
               </linearGradient>
-
               <linearGradient id="${uid}-topface" x1="20%" y1="12%" x2="82%" y2="88%">
                 <stop offset="0%" stop-color="#35383f" />
                 <stop offset="40%" stop-color="#18191c" />
                 <stop offset="100%" stop-color="#09090b" />
               </linearGradient>
-
               <linearGradient id="${uid}-topedge" x1="15%" y1="10%" x2="85%" y2="90%">
                 <stop offset="0%" stop-color="rgba(255,255,255,0.48)" />
                 <stop offset="42%" stop-color="rgba(255,255,255,0.10)" />
                 <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
               </linearGradient>
-
-              <filter id="${uid}-ao" x="-25%" y="-25%" width="150%" height="150%">
-                <feGaussianBlur stdDeviation="3.6" />
-              </filter>
+              <radialGradient id="${uid}-ao" cx="50%" cy="50%" r="50%">
+                <stop offset="58%" stop-color="#000000" stop-opacity="0.72" />
+                <stop offset="85%" stop-color="#000000" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+              </radialGradient>
             </defs>
 
             <g class="dial-scale">${ticksSvg}</g>
@@ -2288,35 +2085,24 @@ class MoogKnob extends HTMLElement {
 
             ${
               cfg.hasSkirt
-                ? `
-              <g class="skirt-base">
-                <circle cx="${cx}" cy="${cy + 3.5}" r="${cfg.rSkirt}" fill="#050507" />
-                <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt}" fill="url(#${uid}-skirt-grad)" stroke="url(#${uid}-skirt-rim)" stroke-width="1.2" />
-                <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt - 2.2}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.8" />
-              </g>
-            `
+                ? `<g class="skirt-base">
+                    <circle cx="${cx}" cy="${cy + 3.5}" r="${cfg.rSkirt}" fill="#050507" />
+                    <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt}" fill="url(#${uid}-skirt-grad)" stroke="url(#${uid}-skirt-rim)" stroke-width="1.2" />
+                    <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt - 2.2}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.8" />
+                  </g>`
                 : ''
             }
 
             ${
               cfg.skirtDot
-                ? `
-              <g class="rot-skirt">
-                <circle
-                  cx="${cx}"
-                  cy="${cy + 1.5 - cfg.rDotSkirt}"
-                  r="${cfg.dotSkirtRadius}"
-                  fill="${this._escapeHtml(dotColor)}"
-                  stroke="rgba(0,0,0,0.75)"
-                  stroke-width="0.7"
-                />
-              </g>
-            `
+                ? `<g class="rot-skirt">
+                    <circle cx="${cx}" cy="${cy + 1.5 - cfg.rDotSkirt}" r="${cfg.dotSkirtRadius}" fill="${this._escapeHtml(dotColor)}" stroke="rgba(0,0,0,0.75)" stroke-width="0.7" />
+                  </g>`
                 : ''
             }
 
             <g class="rot-body-base">
-              <path d="${basePathD}" fill="rgba(0,0,0,0.75)" filter="url(#${uid}-ao)" transform="translate(2, 3)" />
+              <circle cx="${cx + 2}" cy="${baseCy + 3}" r="${cfg.isWingPointer ? cfg.rHubBase + 10 : cfg.rBodyBasePeak + 5}" fill="url(#${uid}-ao)" />
               <path d="${basePathD}" fill="url(#${uid}-sidewall)" stroke="#050507" stroke-width="1.1" />
               ${cfg.isWingPointer ? ridgeHighlightsSvg : ''}
             </g>
@@ -2337,6 +2123,10 @@ class MoogKnob extends HTMLElement {
       </div>
     `;
 
+    if (useAdopted) {
+      this.shadowRoot.adoptedStyleSheets = [sheet];
+    }
+
     this._dialEl = this.shadowRoot.querySelector('.dial-stage');
     this._valueEl = this.shadowRoot.querySelector('.knob-value');
     this._rotSkirtEl = this.shadowRoot.querySelector('.rot-skirt');
@@ -2347,13 +2137,17 @@ class MoogKnob extends HTMLElement {
 
     this._dialEl.addEventListener('pointerdown', this._onPointerDown);
     this._dialEl.addEventListener('dblclick', this._onDblClick);
-    this._dialEl.addEventListener('wheel', this._onWheel, { passive: false });
     this._dialEl.addEventListener('keydown', this._onKeyDown);
+    this._dialEl.addEventListener('pointerenter', this._onEngageWheel);
+    this._dialEl.addEventListener('pointerleave', this._onDisengageWheel);
+    this._dialEl.addEventListener('focus', this._onEngageWheel);
+    this._dialEl.addEventListener('blur', this._onDisengageWheel);
 
+    this._lastRenderedDeg = NaN;
     this._rendered = true;
   }
 
-  _updateVisuals() {
+  _updateVisuals(force = false) {
     if (!this._rendered) return;
     const cfg = VARIANT_CONFIG[this.variant];
     const deg = this._valueToAngle(this._value);
@@ -2362,50 +2156,51 @@ class MoogKnob extends HTMLElement {
     const bodyCy = cy - 2;
     const baseCy = bodyCy + cfg.bodyDy;
 
-    if (this._rotSkirtEl) {
-      this._rotSkirtEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${cy + 1.5})`);
-    }
-    if (this._rotBodyBaseEl) {
-      this._rotBodyBaseEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${baseCy})`);
-    }
-    if (this._rotBodyTopEl) {
-      this._rotBodyTopEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${bodyCy})`);
-    }
-
-    if (!cfg.isWingPointer && this._ridgeGlints.length) {
-      const knobRad = (deg * Math.PI) / 180;
-      for (let i = 0; i < this._ridgeGlints.length; i++) {
-        const worldTheta = knobRad + (i * Math.PI) / 3 - Math.PI / 2;
-        const [tx, ty] = polar(cx, bodyCy, cfg.rBodyTopPeak - 1.0, worldTheta);
-        const [bx, by] = polar(cx, baseCy, cfg.rBodyBasePeak - 1.0, worldTheta);
-        const line = this._ridgeGlints[i];
-        line.setAttribute('x1', tx.toFixed(2));
-        line.setAttribute('y1', ty.toFixed(2));
-        line.setAttribute('x2', bx.toFixed(2));
-        line.setAttribute('y2', by.toFixed(2));
-        const cosLight = Math.cos(worldTheta - LIGHT_ANGLE_RAD);
-        const spec = Math.pow(Math.max(0, cosLight), 2.0) * 0.52 + 0.05;
-        line.setAttribute('opacity', spec.toFixed(3));
+    if (force || Math.abs(deg - this._lastRenderedDeg) >= 0.05 || Number.isNaN(this._lastRenderedDeg)) {
+      this._lastRenderedDeg = deg;
+      const degStr = deg.toFixed(2);
+      if (this._rotSkirtEl) {
+        this._rotSkirtEl.setAttribute('transform', `rotate(${degStr} ${cx} ${cy + 1.5})`);
       }
-    }
+      if (this._rotBodyBaseEl) {
+        this._rotBodyBaseEl.setAttribute('transform', `rotate(${degStr} ${cx} ${baseCy})`);
+      }
+      if (this._rotBodyTopEl) {
+        this._rotBodyTopEl.setAttribute('transform', `rotate(${degStr} ${cx} ${bodyCy})`);
+      }
 
-    if (this._arcFillEl) {
-      if (this.endless) {
-        const normDeg = (((deg % 360) + 360) % 360);
-        this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, 0, normDeg || 0.01));
-      } else {
-        const minA = this._getMinAngle();
-        const maxA = this._getMaxAngle();
-        const startA = this.bipolar ? (minA + maxA) / 2 : minA;
-        this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, startA, deg));
+      if (!cfg.isWingPointer && this._ridgeGlints.length) {
+        const knobRad = (deg * Math.PI) / 180;
+        for (let i = 0; i < this._ridgeGlints.length; i++) {
+          const worldTheta = knobRad + (i * Math.PI) / 3 - Math.PI / 2;
+          const [tx, ty] = polar(cx, bodyCy, cfg.rBodyTopPeak - 1.0, worldTheta);
+          const [bx, by] = polar(cx, baseCy, cfg.rBodyBasePeak - 1.0, worldTheta);
+          const line = this._ridgeGlints[i];
+          line.setAttribute('x1', tx.toFixed(2));
+          line.setAttribute('y1', ty.toFixed(2));
+          line.setAttribute('x2', bx.toFixed(2));
+          line.setAttribute('y2', by.toFixed(2));
+          const cosLight = Math.cos(worldTheta - LIGHT_ANGLE_RAD);
+          const spec = Math.pow(Math.max(0, cosLight), 2.0) * 0.52 + 0.05;
+          line.setAttribute('opacity', spec.toFixed(3));
+        }
+      }
+
+      if (this._arcFillEl) {
+        if (this.endless) {
+          const normDeg = (((deg % 360) + 360) % 360);
+          this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, 0, normDeg || 0.01));
+        } else {
+          const minA = this._getMinAngle();
+          const maxA = this._getMaxAngle();
+          const startA = this.bipolar ? (minA + maxA) / 2 : minA;
+          this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, startA, deg));
+        }
       }
     }
 
     const formatted = this.formattedValue;
-    if (this._valueEl) {
-      this._valueEl.textContent = formatted;
-    }
-
+    if (this._valueEl) this._valueEl.textContent = formatted;
     this._dialEl.setAttribute('aria-valuemin', String(this.min));
     this._dialEl.setAttribute('aria-valuemax', String(this.max));
     this._dialEl.setAttribute('aria-valuenow', String(this._value));
@@ -2429,18 +2224,16 @@ function registerMoogKnob(tagName = 'moog-knob') {
 
 registerMoogKnob('moog-knob');
 
-
 // --- moog-switch.js ---
 
 /**
  * <moog-switch> — Reusable Minimoog Model D Style Rocker & Toggle Switch Component
  *
- * Variants:
- *  - variant="rocker" : Iconic Minimoog Model D 3D illuminated rocker paddle
- *  - variant="toggle" : Precision SVG metallic bat-handle toggle switch with
- *                       center-fused ball pivot & zero-drift 3D foreshortening
- *
- * Includes built-in ON LED backlight illumination (disable with backlight="false").
+ * High-instance-count optimized:
+ *  - Shared adoptedStyleSheets singleton across all switch instances
+ *  - CSS `contain: layout style` isolation
+ *  - Microtask-batched attribute re-renders
+ *  - Precision SVG center-fused chrome bat toggle with zero-overshoot ease-out snap
  */
 
 const SWITCH_COLORS = {
@@ -2491,14 +2284,14 @@ const SWITCH_COLORS = {
   },
 };
 
-const SWITCH_SIZES = {
-  sm: 0.82,
-  md: 1,
-  lg: 1.24,
-};
+const SWITCH_SIZES = { sm: 0.82, md: 1, lg: 1.24 };
+
+const HEX_POINTS = Array.from({ length: 6 }, (_, i) => {
+  const a = (i * Math.PI) / 3 - Math.PI / 2;
+  return `${(30 + 14.5 * Math.cos(a)).toFixed(2)},${(30 + 14.5 * Math.sin(a)).toFixed(2)}`;
+}).join(' ');
 
 function buildToggleBatPath(cx, cy, tilt) {
-  // tilt: -1 = straight UP (ON), 0 = pointing toward camera, +1 = straight DOWN (OFF)
   const rBase = 3.8;
   const rTip = 6.1 - 0.7 * Math.abs(tilt);
   const tipY = cy + tilt * 18.5;
@@ -2522,25 +2315,139 @@ function buildToggleBatPath(cx, cy, tilt) {
     `A${rBase.toFixed(2)},${rBase.toFixed(2)} 0 1 ${sweep} ${(cx - rBase).toFixed(2)},${cy.toFixed(2)}`,
     'Z',
   ].join(' ');
-
   return { d, tipY, rTip };
+}
+
+const SWITCH_CSS_TEXT = `
+  :host {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    -webkit-user-select: none;
+    vertical-align: middle;
+    contain: layout style;
+    --moog-label-color: #e8e6df;
+    --moog-tag-color: rgba(232, 230, 223, 0.56);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  :host([disabled]) { opacity: 0.45; pointer-events: none; }
+  .wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    transform: scale(var(--_sw-scale, 1)); transform-origin: center center;
+  }
+  .sw-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--moog-label-color);
+    text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .rocker-wrap, .toggle-wrap { display: flex; align-items: center; gap: 5px; }
+  .rocker-wrap.vertical, .toggle-wrap.vertical { flex-direction: column; }
+  .rocker-wrap.horizontal, .toggle-wrap.horizontal { flex-direction: row; }
+  .state-tag {
+    font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--moog-tag-color);
+    transition: color 120ms ease;
+  }
+  :host([checked]) .tag-on { color: var(--_led-bright); }
+  :host(:not([checked])) .tag-off { color: #e8e6df; }
+  .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); }
+  .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); }
+  :host([checked]) .toggle-wrap.horizontal .tag-off { color: var(--_led-bright); }
+  :host(:not([checked])) .toggle-wrap.horizontal .tag-on { color: #e8e6df; }
+
+  .rocker-housing {
+    appearance: none; border: 1.5px solid #040406;
+    background: linear-gradient(180deg, #060608 0%, #141518 100%);
+    border-radius: 4px; padding: 3px; cursor: pointer; outline: none; position: relative;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12), inset 0 2px 5px rgba(0,0,0,0.9);
+  }
+  .rocker-housing.vertical { width: 28px; height: 46px; }
+  .rocker-housing.horizontal { width: 46px; height: 28px; }
+  .rocker-housing.has-backlight[aria-checked="true"] {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.75), 0 0 14px rgba(var(--_sw-glow), 0.45), 0 0 0 1px rgba(var(--_sw-glow), 0.55), inset 0 2px 5px rgba(0,0,0,0.9);
+  }
+  .rocker-housing:focus-visible, .toggle-housing:focus-visible {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.45);
+  }
+  .rocker-paddle {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; border-radius: 2.5px; position: relative; overflow: hidden;
+  }
+  .rocker-housing.vertical .rocker-paddle {
+    background: linear-gradient(180deg, var(--_sw-dark) 0%, var(--_sw-base) 46%, var(--_sw-lit) 100%);
+    box-shadow: inset 0 -5px 8px rgba(0,0,0,0.52), inset 0 2px 3px rgba(255,255,255,0.22);
+  }
+  .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
+    background: linear-gradient(180deg, var(--_sw-lit) 0%, var(--_sw-base) 54%, var(--_sw-dark) 100%);
+    box-shadow: inset 0 5px 8px rgba(0,0,0,0.42), inset 0 -2px 3px rgba(255,255,255,0.28);
+  }
+  .rocker-housing.horizontal .rocker-paddle {
+    background: linear-gradient(90deg, var(--_sw-lit) 0%, var(--_sw-base) 54%, var(--_sw-dark) 100%);
+    box-shadow: inset 5px 0 8px rgba(0,0,0,0.45), inset -2px 0 3px rgba(255,255,255,0.22);
+  }
+  .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
+    background: linear-gradient(90deg, var(--_sw-dark) 0%, var(--_sw-base) 46%, var(--_sw-lit) 100%);
+    box-shadow: inset -5px 0 8px rgba(0,0,0,0.42), inset 2px 0 3px rgba(255,255,255,0.28);
+  }
+  .paddle-backlight {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 120ms ease;
+  }
+  .rocker-housing.vertical .paddle-backlight {
+    background: radial-gradient(circle at 50% 24%, var(--_led-core) 0%, var(--_led-bright) 38%, transparent 78%);
+  }
+  .rocker-housing.horizontal .paddle-backlight {
+    background: radial-gradient(circle at 76% 50%, var(--_led-core) 0%, var(--_led-bright) 38%, transparent 78%);
+  }
+  .rocker-housing.has-backlight[aria-checked="true"] .paddle-backlight { opacity: 0.72; }
+  .paddle-led-slit {
+    position: absolute; border-radius: 999px; pointer-events: none;
+    background: rgba(0,0,0,0.36); border: 1px solid rgba(0,0,0,0.45);
+    transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  }
+  .rocker-housing.vertical .paddle-led-slit { width: 11px; height: 3.5px; top: 5px; left: 50%; transform: translateX(-50%); }
+  .rocker-housing.horizontal .paddle-led-slit { width: 3.5px; height: 11px; right: 5px; top: 50%; transform: translateY(-50%); }
+  .rocker-housing.has-backlight[aria-checked="true"] .paddle-led-slit {
+    background: var(--_led-core); border-color: var(--_led-bright);
+    box-shadow: 0 0 8px var(--_led-bright), 0 0 14px rgba(var(--_sw-glow), 0.95);
+  }
+  .paddle-ridge {
+    position: absolute; opacity: 0.65; border-radius: 1px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.28), var(--_sw-edge), rgba(0,0,0,0.28));
+  }
+  .rocker-housing.vertical .paddle-ridge { width: 82%; height: 2.5px; top: 50%; transform: translateY(-50%); }
+  .rocker-housing.horizontal .paddle-ridge { width: 2.5px; height: 82%; left: 50%; transform: translateX(-50%); }
+
+  .toggle-housing {
+    appearance: none; border: none; background: transparent;
+    width: 54px; height: 54px; padding: 0; cursor: pointer; outline: none;
+    display: block; border-radius: 10px;
+  }
+  .toggle-housing.horizontal { transform: rotate(90deg); }
+  .toggle-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .toggle-led-ring { opacity: 0; transition: opacity 120ms ease; }
+  .toggle-housing.has-backlight[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }
+`;
+
+let sharedSwitchSheet = null;
+function getSwitchSheet() {
+  if (!sharedSwitchSheet && typeof CSSStyleSheet !== 'undefined') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(SWITCH_CSS_TEXT);
+      sharedSwitchSheet = sheet;
+    } catch (_) {
+      sharedSwitchSheet = null;
+    }
+  }
+  return sharedSwitchSheet;
 }
 
 class MoogSwitch extends HTMLElement {
   static get observedAttributes() {
     return [
-      'checked',
-      'label',
-      'label-position',
-      'on-label',
-      'off-label',
-      'variant',
-      'color',
-      'led-color',
-      'backlight',
-      'orientation',
-      'size',
-      'disabled',
+      'checked', 'label', 'label-position', 'on-label', 'off-label',
+      'variant', 'color', 'led-color', 'backlight', 'orientation', 'size', 'disabled',
     ];
   }
 
@@ -2549,10 +2456,10 @@ class MoogSwitch extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._checked = false;
     this._rendered = false;
-    this._toggleTilt = 1; // +1 = OFF (down), -1 = ON (up)
+    this._renderPending = false;
+    this._toggleTilt = 1;
     this._animRaf = null;
     this._uid = `ms-${Math.random().toString(36).slice(2, 9)}`;
-
     this._onClick = this._onClick.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
   }
@@ -2575,15 +2482,21 @@ class MoogSwitch extends HTMLElement {
       if (this._rendered) this._updateVisuals(true);
       return;
     }
-    if (this._rendered) {
-      this._render();
-      this._updateVisuals(false);
-    }
+    if (this._rendered) this._scheduleRender();
   }
 
-  get checked() {
-    return this._checked;
+  _scheduleRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    queueMicrotask(() => {
+      this._renderPending = false;
+      if (!this.isConnected) return;
+      this._render();
+      this._updateVisuals(false);
+    });
   }
+
+  get checked() { return this._checked; }
   set checked(val) {
     const next = Boolean(val);
     if (next !== this._checked) {
@@ -2595,33 +2508,23 @@ class MoogSwitch extends HTMLElement {
   }
 
   get value() {
-    return this._checked
-      ? this.getAttribute('on-label') || 'ON'
-      : this.getAttribute('off-label') || 'OFF';
+    return this._checked ? this.getAttribute('on-label') || 'ON' : this.getAttribute('off-label') || 'OFF';
   }
 
-  get backlight() {
-    return this.getAttribute('backlight') !== 'false';
-  }
+  get backlight() { return this.getAttribute('backlight') !== 'false'; }
   set backlight(flag) {
     if (flag) this.removeAttribute('backlight');
     else this.setAttribute('backlight', 'false');
   }
 
-  get disabled() {
-    return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false';
-  }
+  get disabled() { return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false'; }
   set disabled(flag) {
     if (flag) this.setAttribute('disabled', '');
     else this.removeAttribute('disabled');
   }
 
-  get variant() {
-    return this.getAttribute('variant') === 'toggle' ? 'toggle' : 'rocker';
-  }
-  set variant(v) {
-    this.setAttribute('variant', v);
-  }
+  get variant() { return this.getAttribute('variant') === 'toggle' ? 'toggle' : 'rocker'; }
+  set variant(v) { this.setAttribute('variant', v); }
 
   toggle() {
     if (this.disabled) return;
@@ -2640,16 +2543,9 @@ class MoogSwitch extends HTMLElement {
 
   _onKeyDown(e) {
     if (this.disabled) return;
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      this.toggle();
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      if (!this._checked) this.toggle();
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-      e.preventDefault();
-      if (this._checked) this.toggle();
-    }
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.toggle(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); if (!this._checked) this.toggle(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); if (this._checked) this.toggle(); }
   }
 
   _render() {
@@ -2664,51 +2560,32 @@ class MoogSwitch extends HTMLElement {
     const customLed = this.getAttribute('led-color');
     const ledCore = customLed ? '#ffffff' : palette.ledCore;
     const ledBright = customLed || palette.ledBright;
-    const hasBacklight = this.backlight;
+    const blClass = this.backlight ? 'has-backlight' : '';
     const uid = this._uid;
 
     const labelHtml = label ? `<div class="sw-label">${this._esc(label)}</div>` : '';
 
     const rockerBodyHtml = isVert
-      ? `
-        <div class="rocker-wrap vertical">
+      ? `<div class="rocker-wrap vertical">
           <span class="state-tag tag-on">${this._esc(onLabel)}</span>
-          <button class="rocker-housing vertical" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
-            <span class="rocker-paddle">
-              <span class="paddle-backlight"></span>
-              <span class="paddle-led-slit"></span>
-              <span class="paddle-ridge"></span>
-            </span>
+          <button class="rocker-housing vertical ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+            <span class="rocker-paddle"><span class="paddle-backlight"></span><span class="paddle-led-slit"></span><span class="paddle-ridge"></span></span>
           </button>
           <span class="state-tag tag-off">${this._esc(offLabel)}</span>
-        </div>
-      `
-      : `
-        <div class="rocker-wrap horizontal">
+        </div>`
+      : `<div class="rocker-wrap horizontal">
           <span class="state-tag tag-off">${this._esc(offLabel)}</span>
-          <button class="rocker-housing horizontal" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
-            <span class="rocker-paddle">
-              <span class="paddle-backlight"></span>
-              <span class="paddle-led-slit"></span>
-              <span class="paddle-ridge"></span>
-            </span>
+          <button class="rocker-housing horizontal ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+            <span class="rocker-paddle"><span class="paddle-backlight"></span><span class="paddle-led-slit"></span><span class="paddle-ridge"></span></span>
           </button>
           <span class="state-tag tag-on">${this._esc(onLabel)}</span>
-        </div>
-      `;
-
-    // Hex nut points around exact center (30, 30), radius 14.5
-    const hexPts = Array.from({ length: 6 }, (_, i) => {
-      const a = (i * Math.PI) / 3 - Math.PI / 2;
-      return `${(30 + 14.5 * Math.cos(a)).toFixed(2)},${(30 + 14.5 * Math.sin(a)).toFixed(2)}`;
-    }).join(' ');
+        </div>`;
 
     const initBat = buildToggleBatPath(30, 30, this._toggleTilt);
-
     const toggleBodyHtml = `
       <div class="toggle-wrap ${isVert ? 'vertical' : 'horizontal'}">
         <span class="state-tag tag-on">${this._esc(isVert ? onLabel : offLabel)}</span>
-        <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+        <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'} ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
           <svg class="toggle-svg" viewBox="0 0 60 60" aria-hidden="true">
             <defs>
               <radialGradient id="${uid}-glow" cx="50%" cy="50%" r="50%">
@@ -2717,38 +2594,22 @@ class MoogSwitch extends HTMLElement {
                 <stop offset="100%" stop-color="${ledBright}" stop-opacity="0" />
               </radialGradient>
               <linearGradient id="${uid}-nut" x1="15%" y1="10%" x2="85%" y2="90%">
-                <stop offset="0%" stop-color="#e2e8f0" />
-                <stop offset="50%" stop-color="#8b949e" />
-                <stop offset="100%" stop-color="#4b525a" />
+                <stop offset="0%" stop-color="#e2e8f0" /><stop offset="50%" stop-color="#8b949e" /><stop offset="100%" stop-color="#4b525a" />
               </linearGradient>
               <radialGradient id="${uid}-well" cx="50%" cy="50%" r="50%">
-                <stop offset="45%" stop-color="#050507" />
-                <stop offset="85%" stop-color="#1e2126" />
-                <stop offset="100%" stop-color="#474d56" />
+                <stop offset="45%" stop-color="#050507" /><stop offset="85%" stop-color="#1e2126" /><stop offset="100%" stop-color="#474d56" />
               </radialGradient>
               <linearGradient id="${uid}-chrome" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#474e57" />
-                <stop offset="28%" stop-color="#f1f5f9" />
-                <stop offset="52%" stop-color="#cbd5e1" />
-                <stop offset="78%" stop-color="#64748b" />
-                <stop offset="100%" stop-color="#334155" />
+                <stop offset="0%" stop-color="#474e57" /><stop offset="28%" stop-color="#f1f5f9" /><stop offset="52%" stop-color="#cbd5e1" /><stop offset="78%" stop-color="#64748b" /><stop offset="100%" stop-color="#334155" />
               </linearGradient>
               <radialGradient id="${uid}-tipglint" cx="35%" cy="32%" r="60%">
-                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
-                <stop offset="55%" stop-color="#e2e8f0" stop-opacity="0.35" />
-                <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" /><stop offset="55%" stop-color="#e2e8f0" stop-opacity="0.35" /><stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
               </radialGradient>
             </defs>
-
-            <!-- Backlight Ring behind Hex Nut -->
             <circle class="toggle-led-ring" cx="30" cy="30" r="22" fill="url(#${uid}-glow)" />
-
-            <!-- Hex Mounting Nut & Recessed Washer -->
-            <polygon points="${hexPts}" fill="url(#${uid}-nut)" stroke="#1a1c20" stroke-width="1" />
+            <polygon points="${HEX_POINTS}" fill="url(#${uid}-nut)" stroke="#1a1c20" stroke-width="1" />
             <circle cx="30" cy="30" r="10.2" fill="#2c3037" stroke="rgba(255,255,255,0.22)" stroke-width="0.7" />
             <circle cx="30" cy="30" r="8.2" fill="url(#${uid}-well)" />
-
-            <!-- Center-Fused Ball Pivot & Unified Chrome Bat Handle -->
             <path class="bat-shadow" d="${initBat.d}" fill="rgba(0,0,0,0.62)" transform="translate(2.2, 2.8)" />
             <circle cx="30" cy="30" r="4.6" fill="url(#${uid}-chrome)" stroke="#0f1115" stroke-width="0.6" />
             <path class="bat-shaft" d="${initBat.d}" fill="url(#${uid}-chrome)" stroke="#1e242c" stroke-width="0.65" />
@@ -2756,232 +2617,22 @@ class MoogSwitch extends HTMLElement {
           </svg>
         </button>
         <span class="state-tag tag-off">${this._esc(isVert ? offLabel : onLabel)}</span>
-      </div>
-    `;
+      </div>`;
+
+    const sheet = getSwitchSheet();
+    const useAdopted = sheet && this.shadowRoot.adoptedStyleSheets !== undefined;
+    const styleVars = `--_sw-scale:${scale};--_sw-base:${palette.base};--_sw-lit:${palette.lit};--_sw-dark:${palette.dark};--_sw-edge:${palette.edge};--_sw-glow:${palette.glow};--_led-core:${ledCore};--_led-bright:${ledBright};`;
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          user-select: none;
-          -webkit-user-select: none;
-          vertical-align: middle;
-          --moog-label-color: #e8e6df;
-          --moog-tag-color: rgba(232, 230, 223, 0.56);
-          --moog-tag-active: ${ledBright};
-          font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        }
-        :host([disabled]) {
-          opacity: 0.45;
-          pointer-events: none;
-        }
-        .wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 5px;
-          transform: scale(${scale});
-          transform-origin: center center;
-        }
-        .sw-label {
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--moog-label-color);
-          text-align: center;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-        }
-        .rocker-wrap, .toggle-wrap {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-        }
-        .rocker-wrap.vertical, .toggle-wrap.vertical {
-          flex-direction: column;
-        }
-        .rocker-wrap.horizontal, .toggle-wrap.horizontal {
-          flex-direction: row;
-        }
-        .state-tag {
-          font-size: 8.5px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--moog-tag-color);
-          transition: color 120ms ease, text-shadow 120ms ease;
-        }
-        :host([checked]) .tag-on {
-          color: var(--moog-tag-active);
-          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
-        }
-        :host(:not([checked])) .tag-off {
-          color: #e8e6df;
-        }
-        .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); text-shadow: none; }
-        .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); text-shadow: none; }
-        :host([checked]) .toggle-wrap.horizontal .tag-off {
-          color: var(--moog-tag-active);
-          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
-        }
-        :host(:not([checked])) .toggle-wrap.horizontal .tag-on {
-          color: #e8e6df;
-        }
-
-        /* ---- Minimoog 3D Illuminated Rocker Paddle ---- */
-        .rocker-housing {
-          appearance: none;
-          border: 1.5px solid #040406;
-          background: linear-gradient(180deg, #060608 0%, #141518 100%);
-          border-radius: 4px;
-          padding: 3px;
-          cursor: pointer;
-          outline: none;
-          position: relative;
-          box-shadow:
-            0 3px 8px rgba(0, 0, 0, 0.75),
-            0 0 0 1px rgba(255, 255, 255, 0.12),
-            inset 0 2px 5px rgba(0, 0, 0, 0.9);
-          transition: box-shadow 140ms ease;
-        }
-        .rocker-housing.vertical { width: 28px; height: 46px; }
-        .rocker-housing.horizontal { width: 46px; height: 28px; }
-        ${
-          hasBacklight
-            ? `
-        .rocker-housing[aria-checked="true"] {
-          box-shadow:
-            0 3px 8px rgba(0, 0, 0, 0.75),
-            0 0 14px rgba(${palette.glow}, 0.45),
-            0 0 0 1px rgba(${palette.glow}, 0.55),
-            inset 0 2px 5px rgba(0, 0, 0, 0.9);
-        }`
-            : ''
-        }
-        .rocker-housing:focus-visible,
-        .toggle-housing:focus-visible {
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.45);
-        }
-
-        .rocker-paddle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          border-radius: 2.5px;
-          position: relative;
-          overflow: hidden;
-          transition: background 140ms ease, box-shadow 140ms ease;
-        }
-
-        .rocker-housing.vertical .rocker-paddle {
-          background: linear-gradient(180deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow: inset 0 -5px 8px rgba(0, 0, 0, 0.52), inset 0 2px 3px rgba(255, 255, 255, 0.22);
-        }
-        .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
-          background: linear-gradient(180deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow: inset 0 5px 8px rgba(0, 0, 0, 0.42), inset 0 -2px 3px rgba(255, 255, 255, 0.28);
-        }
-        .rocker-housing.horizontal .rocker-paddle {
-          background: linear-gradient(90deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow: inset 5px 0 8px rgba(0, 0, 0, 0.45), inset -2px 0 3px rgba(255, 255, 255, 0.22);
-        }
-        .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
-          background: linear-gradient(90deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow: inset -5px 0 8px rgba(0, 0, 0, 0.42), inset 2px 0 3px rgba(255, 255, 255, 0.28);
-        }
-
-        .paddle-backlight {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-        .rocker-housing.vertical .paddle-backlight {
-          background: radial-gradient(circle at 50% 24%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
-        }
-        .rocker-housing.horizontal .paddle-backlight {
-          background: radial-gradient(circle at 76% 50%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
-        }
-        ${hasBacklight ? `.rocker-housing[aria-checked="true"] .paddle-backlight { opacity: 0.72; }` : ''}
-
-        .paddle-led-slit {
-          position: absolute;
-          border-radius: 999px;
-          pointer-events: none;
-          background: rgba(0, 0, 0, 0.36);
-          border: 1px solid rgba(0, 0, 0, 0.45);
-          transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-        }
-        .rocker-housing.vertical .paddle-led-slit {
-          width: 11px; height: 3.5px; top: 5px; left: 50%; transform: translateX(-50%);
-        }
-        .rocker-housing.horizontal .paddle-led-slit {
-          width: 3.5px; height: 11px; right: 5px; top: 50%; transform: translateY(-50%);
-        }
-        ${
-          hasBacklight
-            ? `
-        .rocker-housing[aria-checked="true"] .paddle-led-slit {
-          background: ${ledCore};
-          border-color: ${ledBright};
-          box-shadow: 0 0 8px ${ledBright}, 0 0 14px rgba(${palette.glow}, 0.95);
-        }`
-            : ''
-        }
-
-        .paddle-ridge {
-          position: absolute;
-          background: linear-gradient(90deg, rgba(0,0,0,0.28), ${palette.edge}, rgba(0,0,0,0.28));
-          opacity: 0.65;
-          border-radius: 1px;
-        }
-        .rocker-housing.vertical .paddle-ridge {
-          width: 82%; height: 2.5px; top: 50%; transform: translateY(-50%);
-        }
-        .rocker-housing.horizontal .paddle-ridge {
-          width: 2.5px; height: 82%; left: 50%; transform: translateX(-50%);
-        }
-
-        /* ---- Precision SVG Toggle Switch ---- */
-        .toggle-housing {
-          appearance: none;
-          border: none;
-          background: transparent;
-          width: 54px;
-          height: 54px;
-          padding: 0;
-          cursor: pointer;
-          outline: none;
-          display: block;
-          border-radius: 10px;
-        }
-        .toggle-housing.horizontal {
-          transform: rotate(90deg);
-        }
-        .toggle-svg {
-          width: 100%;
-          height: 100%;
-          display: block;
-          overflow: visible;
-        }
-        .toggle-led-ring {
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-        ${hasBacklight ? `.toggle-housing[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }` : ''}
-      </style>
-
-      <div class="wrap">
+      ${useAdopted ? '' : `<style>${SWITCH_CSS_TEXT}</style>`}
+      <div class="wrap" style="${styleVars}">
         ${labelPos === 'top' ? labelHtml : ''}
         ${isToggle ? toggleBodyHtml : rockerBodyHtml}
         ${labelPos === 'bottom' ? labelHtml : ''}
       </div>
     `;
+
+    if (useAdopted) this.shadowRoot.adoptedStyleSheets = [sheet];
 
     this._btnEl = this.shadowRoot.querySelector('button[role="switch"]');
     this._batShaftEl = this.shadowRoot.querySelector('.bat-shaft');
@@ -3008,7 +2659,6 @@ class MoogSwitch extends HTMLElement {
   _updateVisuals(animate = true) {
     if (!this._rendered || !this._btnEl) return;
     this._btnEl.setAttribute('aria-checked', String(this._checked));
-
     if (this.variant !== 'toggle' || !this._batShaftEl) return;
 
     const targetTilt = this._checked ? -1 : 1;
@@ -3023,27 +2673,19 @@ class MoogSwitch extends HTMLElement {
 
     const duration = 95;
     const startTime = performance.now();
-
     const step = (now) => {
       const p = Math.min(1, (now - startTime) / duration);
-      // Crisp ease-out cubic: zero overshoot, zero wobble
       const eased = 1 - Math.pow(1 - p, 3);
       this._applyToggleTilt(startTilt + (targetTilt - startTilt) * eased);
-      if (p < 1) {
-        this._animRaf = requestAnimationFrame(step);
-      } else {
-        this._animRaf = null;
-      }
+      if (p < 1) this._animRaf = requestAnimationFrame(step);
+      else this._animRaf = null;
     };
     this._animRaf = requestAnimationFrame(step);
   }
 
   _esc(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 
@@ -3055,21 +2697,16 @@ function registerMoogSwitch(tagName = 'moog-switch') {
 
 registerMoogSwitch('moog-switch');
 
-
 // --- moog-led.js ---
 
 /**
  * <moog-led> — Reusable Vintage Jewel Pilot Lamp & Panel LED Indicator Component
  *
- * Variants:
- *  - variant="jewel" : Faceted Minimoog OVERLOAD-style glass jewel lamp in bezel housing
- *  - variant="flat"  : Crisp 5mm recessed diode LED with metallic collar
- *
- * Supports analog dimming via `intensity` (0..1) and optional automatic `blink` interval.
- *
- * @example
- * <moog-led label="OVERLOAD" color="amber" on></moog-led>
- * <moog-led label="LFO SYNC" variant="flat" color="red" blink="450"></moog-led>
+ * High-instance-count optimized:
+ *  - Shared adoptedStyleSheets singleton across all LED instances
+ *  - CSS `contain: layout style paint` isolation
+ *  - Static halo box-shadow animated purely via GPU `opacity` (zero repaint)
+ *  - Zero-JS CSS `@keyframes` blink (0 `setInterval` timers even with 100+ LEDs)
  */
 
 const LED_PALETTE = {
@@ -3080,11 +2717,95 @@ const LED_PALETTE = {
   pink: { core: '#fce7f3', mid: '#f472b6', dark: '#4a0d2d', glow: '244, 114, 182' },
 };
 
-const LED_SIZES = {
-  sm: 14,
-  md: 20,
-  lg: 28,
-};
+const LED_SIZES = { sm: 14, md: 20, lg: 28 };
+
+const LED_CSS_TEXT = `
+  :host {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    vertical-align: middle;
+    contain: layout style paint;
+    --moog-label-color: rgba(232, 230, 223, 0.72);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  .wrap {
+    display: inline-flex; align-items: center; gap: 6px;
+    flex-direction: var(--_led-dir, column);
+  }
+  .led-label {
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--moog-label-color);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+  }
+  .bezel {
+    position: relative;
+    width: var(--_bezel-size, 26px); height: var(--_bezel-size, 26px);
+    border-radius: 50%; padding: 3px; box-sizing: border-box;
+    background: var(--_bezel-bg);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 1px rgba(255,255,255,0.25);
+    display: grid; place-items: center;
+  }
+  .blink-gate {
+    position: relative; width: 100%; height: 100%; display: grid; place-items: center;
+  }
+  :host([blink]:not([blink="false"])) .blink-gate.is-on {
+    animation: moog-led-blink var(--_blink-dur, 1000ms) steps(1, end) infinite;
+  }
+  @keyframes moog-led-blink {
+    0%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0.08; }
+  }
+  .bulb-halo {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    opacity: 0; will-change: opacity;
+    box-shadow: 0 0 14px rgba(var(--_led-glow), 0.88), 0 0 28px rgba(var(--_led-glow), 0.52);
+    transition: opacity 70ms linear;
+  }
+  .bulb {
+    width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--_led-mid) 35%, transparent) 0%, var(--_led-dark) 75%, #09090b 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
+  }
+  .bulb-glow {
+    position: absolute; inset: 0; border-radius: 50%; opacity: 0; will-change: opacity;
+    background: radial-gradient(circle at 38% 34%, var(--_led-core) 0%, var(--_led-mid) 54%, var(--_led-dark) 100%);
+    transition: opacity 70ms linear;
+  }
+  .bulb.is-jewel::before {
+    content: ''; position: absolute; inset: 14%; border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255,255,255,0.28) 0deg 30deg, rgba(0,0,0,0.18) 30deg 60deg,
+      rgba(255,255,255,0.22) 60deg 90deg, rgba(0,0,0,0.18) 90deg 120deg,
+      rgba(255,255,255,0.28) 120deg 150deg, rgba(0,0,0,0.18) 150deg 180deg,
+      rgba(255,255,255,0.22) 180deg 210deg, rgba(0,0,0,0.18) 210deg 240deg,
+      rgba(255,255,255,0.28) 240deg 270deg, rgba(0,0,0,0.18) 270deg 300deg,
+      rgba(255,255,255,0.22) 300deg 330deg, rgba(0,0,0,0.18) 330deg 360deg
+    );
+    mix-blend-mode: overlay; z-index: 2; pointer-events: none;
+  }
+  .bulb::after {
+    content: ''; position: absolute; top: 14%; left: 20%; width: 34%; height: 24%;
+    border-radius: 50%; background: rgba(255,255,255,0.55); transform: rotate(-28deg);
+    z-index: 3; pointer-events: none;
+  }
+`;
+
+let sharedLedSheet = null;
+function getLedSheet() {
+  if (!sharedLedSheet && typeof CSSStyleSheet !== 'undefined') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(LED_CSS_TEXT);
+      sharedLedSheet = sheet;
+    } catch (_) {
+      sharedLedSheet = null;
+    }
+  }
+  return sharedLedSheet;
+}
 
 class MoogLed extends HTMLElement {
   static get observedAttributes() {
@@ -3096,20 +2817,14 @@ class MoogLed extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._on = false;
     this._intensity = 1;
-    this._blinkPhase = true;
-    this._blinkTimer = null;
     this._rendered = false;
+    this._renderPending = false;
   }
 
   connectedCallback() {
     this._syncStateFromAttrs();
     this._render();
     this._updateVisuals();
-    this._setupBlink();
-  }
-
-  disconnectedCallback() {
-    clearInterval(this._blinkTimer);
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -3120,14 +2835,21 @@ class MoogLed extends HTMLElement {
       return;
     }
     if (name === 'blink') {
-      this._setupBlink();
-      if (this._rendered) this._updateVisuals();
+      if (this._rendered) this._updateBlinkVar();
       return;
     }
-    if (this._rendered) {
+    if (this._rendered) this._scheduleRender();
+  }
+
+  _scheduleRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    queueMicrotask(() => {
+      this._renderPending = false;
+      if (!this.isConnected) return;
       this._render();
       this._updateVisuals();
-    }
+    });
   }
 
   _syncStateFromAttrs() {
@@ -3142,9 +2864,7 @@ class MoogLed extends HTMLElement {
     }
   }
 
-  get on() {
-    return this._on;
-  }
+  get on() { return this._on; }
   set on(v) {
     const next = Boolean(v);
     if (next !== this._on) {
@@ -3158,26 +2878,12 @@ class MoogLed extends HTMLElement {
     }
   }
 
-  get intensity() {
-    return this._intensity;
-  }
+  get intensity() { return this._intensity; }
   set intensity(v) {
     const n = Math.min(1, Math.max(0, Number(v) || 0));
+    if (Math.abs(n - this._intensity) < 0.005) return;
     this._intensity = n;
-    this.setAttribute('intensity', String(n));
     if (this._rendered) this._updateVisuals();
-  }
-
-  _setupBlink() {
-    clearInterval(this._blinkTimer);
-    this._blinkPhase = true;
-    if (!this.hasAttribute('blink') || this.getAttribute('blink') === 'false') return;
-    const rawMs = Number(this.getAttribute('blink'));
-    const ms = Number.isFinite(rawMs) && rawMs >= 60 ? rawMs : 500;
-    this._blinkTimer = setInterval(() => {
-      this._blinkPhase = !this._blinkPhase;
-      this._updateVisuals();
-    }, ms);
   }
 
   _getSizePx() {
@@ -3185,6 +2891,18 @@ class MoogLed extends HTMLElement {
     if (LED_SIZES[raw]) return LED_SIZES[raw];
     const n = Number(raw);
     return Number.isFinite(n) && n >= 8 ? n : LED_SIZES.md;
+  }
+
+  _getBlinkDurationMs() {
+    const rawMs = Number(this.getAttribute('blink'));
+    const half = Number.isFinite(rawMs) && rawMs >= 60 ? rawMs : 500;
+    return half * 2;
+  }
+
+  _updateBlinkVar() {
+    if (this._wrapEl) {
+      this._wrapEl.style.setProperty('--_blink-dur', `${this._getBlinkDurationMs()}ms`);
+    }
   }
 
   _render() {
@@ -3208,146 +2926,49 @@ class MoogLed extends HTMLElement {
           ? 'linear-gradient(135deg, #f3d78a 0%, #8a6a24 55%, #d4af53 100%)'
           : 'linear-gradient(135deg, #32353b 0%, #0a0b0d 65%, #23252a 100%)';
 
+    const dir = labelPos === 'right' || labelPos === 'left' ? 'row' : 'column';
     const labelHtml = label ? `<span class="led-label">${this._esc(label)}</span>` : '';
+    const sheet = getLedSheet();
+    const useAdopted = sheet && this.shadowRoot.adoptedStyleSheets !== undefined;
+    const styleVars = `--_led-dir:${dir};--_bezel-size:${sizePx + 6}px;--_bezel-bg:${bezelGrad};--_led-core:${pal.core};--_led-mid:${pal.mid};--_led-dark:${pal.dark};--_led-glow:${pal.glow};--_blink-dur:${this._getBlinkDurationMs()}ms;`;
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          user-select: none;
-          vertical-align: middle;
-          --moog-label-color: rgba(232, 230, 223, 0.72);
-          font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        }
-        .wrap {
-          display: inline-flex;
-          flex-direction: ${labelPos === 'right' || labelPos === 'left' ? 'row' : 'column'};
-          align-items: center;
-          gap: 6px;
-        }
-        .led-label {
-          font-size: 9.5px;
-          font-weight: 800;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--moog-label-color);
-          text-shadow: 0 1px 2px rgba(0,0,0,0.85);
-        }
-        .bezel {
-          width: ${sizePx + 6}px;
-          height: ${sizePx + 6}px;
-          border-radius: 50%;
-          padding: 3px;
-          box-sizing: border-box;
-          background: ${bezelGrad};
-          box-shadow:
-            0 2px 6px rgba(0, 0, 0, 0.85),
-            0 0 0 1px rgba(255, 255, 255, 0.12),
-            inset 0 1px 1px rgba(255, 255, 255, 0.25);
-          display: grid;
-          place-items: center;
-        }
-        .bulb {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          position: relative;
-          overflow: hidden;
-          background: radial-gradient(circle at 38% 34%, ${pal.mid}55 0%, ${pal.dark} 75%, #09090b 100%);
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
-          transition: box-shadow 70ms linear, filter 70ms linear;
-        }
-        .bulb-glow {
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          opacity: 0;
-          background: ${
-            isJewel
-              ? `radial-gradient(circle at 38% 34%, ${pal.core} 0%, ${pal.mid} 50%, ${pal.dark} 100%)`
-              : `radial-gradient(circle at 40% 38%, ${pal.core} 0%, ${pal.mid} 68%, ${pal.dark} 100%)`
-          };
-          transition: opacity 70ms linear;
-        }
-        ${
-          isJewel
-            ? `
-        .bulb::before {
-          content: '';
-          position: absolute;
-          inset: 14%;
-          border-radius: 50%;
-          background: conic-gradient(
-            from 0deg,
-            rgba(255,255,255,0.28) 0deg 30deg,
-            rgba(0,0,0,0.18) 30deg 60deg,
-            rgba(255,255,255,0.22) 60deg 90deg,
-            rgba(0,0,0,0.18) 90deg 120deg,
-            rgba(255,255,255,0.28) 120deg 150deg,
-            rgba(0,0,0,0.18) 150deg 180deg,
-            rgba(255,255,255,0.22) 180deg 210deg,
-            rgba(0,0,0,0.18) 210deg 240deg,
-            rgba(255,255,255,0.28) 240deg 270deg,
-            rgba(0,0,0,0.18) 270deg 300deg,
-            rgba(255,255,255,0.22) 300deg 330deg,
-            rgba(0,0,0,0.18) 330deg 360deg
-          );
-          mix-blend-mode: overlay;
-          z-index: 2;
-          pointer-events: none;
-        }`
-            : ''
-        }
-        .bulb::after {
-          content: '';
-          position: absolute;
-          top: 14%;
-          left: 20%;
-          width: 34%;
-          height: 24%;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.55);
-          transform: rotate(-28deg);
-          z-index: 3;
-          pointer-events: none;
-        }
-      </style>
-      <div class="wrap" role="status" aria-label="${this._esc(label || 'LED Indicator')}">
+      ${useAdopted ? '' : `<style>${LED_CSS_TEXT}</style>`}
+      <div class="wrap" style="${styleVars}" role="status" aria-label="${this._esc(label || 'LED Indicator')}">
         ${labelPos === 'top' || labelPos === 'left' ? labelHtml : ''}
         <div class="bezel">
-          <div class="bulb" data-glow-rgb="${pal.glow}">
-            <div class="bulb-glow"></div>
+          <div class="blink-gate">
+            <div class="bulb-halo"></div>
+            <div class="bulb ${isJewel ? 'is-jewel' : ''}">
+              <div class="bulb-glow"></div>
+            </div>
           </div>
         </div>
         ${labelPos === 'bottom' || labelPos === 'right' ? labelHtml : ''}
       </div>
     `;
 
-    this._bulbEl = this.shadowRoot.querySelector('.bulb');
+    if (useAdopted) this.shadowRoot.adoptedStyleSheets = [sheet];
+
+    this._wrapEl = this.shadowRoot.querySelector('.wrap');
+    this._blinkGateEl = this.shadowRoot.querySelector('.blink-gate');
+    this._haloEl = this.shadowRoot.querySelector('.bulb-halo');
     this._glowEl = this.shadowRoot.querySelector('.bulb-glow');
     this._rendered = true;
   }
 
   _updateVisuals() {
     if (!this._rendered || !this._glowEl) return;
-    const effective = this._on && this._blinkPhase ? this._intensity : 0;
-    const rgb = this._bulbEl.dataset.glowRgb || '245, 158, 11';
-    this._glowEl.style.opacity = effective.toFixed(3);
-    if (effective > 0.02) {
-      this._bulbEl.style.boxShadow = `0 0 ${(14 * effective).toFixed(1)}px rgba(${rgb}, ${(0.88 * effective).toFixed(2)}), 0 0 ${(28 * effective).toFixed(1)}px rgba(${rgb}, ${(0.52 * effective).toFixed(2)}), inset 0 1px 2px rgba(255,255,255,0.45)`;
-    } else {
-      this._bulbEl.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.85)';
-    }
+    const effective = this._on ? this._intensity : 0;
+    const op = effective.toFixed(3);
+    this._glowEl.style.opacity = op;
+    if (this._haloEl) this._haloEl.style.opacity = op;
+    if (this._blinkGateEl) this._blinkGateEl.classList.toggle('is-on', this._on);
   }
 
   _esc(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 
@@ -3478,6 +3099,7 @@ registerMoogLed('moog-led');
         powerLed.on = true;
         updateSynthParams();
         updatePowerUI();
+        startScopeLoop();
       }
 
       function midiToHz(midi) {
@@ -3647,16 +3269,44 @@ registerMoogLed('moog-led');
         }
       });
 
-      // ---- Oscilloscope + Dynamic LED Animation ----
+      // ---- Oscilloscope + Dynamic LED Animation (runs only when audio is active) ----
       const scopeCanvas = document.getElementById('scopeCanvas');
       const sctx = scopeCanvas.getContext('2d');
       const buf = new Uint8Array(512);
+      let scopeRaf = null;
+      let lastLedTick = 0;
 
-      function drawScope() {
-        const nowSec = performance.now() / 1000;
-        const lfoPulse = 0.5 + 0.5 * Math.sin(nowSec * kLfoRate.value * Math.PI * 2);
-        lfoLed.on = filterModEnabled;
-        lfoLed.intensity = filterModEnabled ? 0.18 + lfoPulse * 0.82 : 0;
+      function drawStandbyScope() {
+        const w = scopeCanvas.width;
+        const h = scopeCanvas.height;
+        sctx.fillStyle = '#060809';
+        sctx.fillRect(0, 0, w, h);
+        sctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        sctx.lineWidth = 1;
+        sctx.beginPath();
+        sctx.moveTo(0, h / 2);
+        sctx.lineTo(w, h / 2);
+        sctx.stroke();
+
+        sctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+        sctx.lineWidth = 1.6;
+        sctx.beginPath();
+        for (let x = 0; x <= w; x += 6) {
+          const y = h / 2 + Math.sin(x * 0.04) * 2.5;
+          if (x === 0) sctx.moveTo(x, y);
+          else sctx.lineTo(x, y);
+        }
+        sctx.stroke();
+        overloadLed.on = false;
+        lfoLed.on = false;
+      }
+
+      function drawScope(nowMs) {
+        if (!audioRunning) {
+          scopeRaf = null;
+          drawStandbyScope();
+          return;
+        }
 
         const w = scopeCanvas.width;
         const h = scopeCanvas.height;
@@ -3674,32 +3324,39 @@ registerMoogLed('moog-led');
         sctx.lineWidth = 2;
         sctx.beginPath();
 
-        if (analyser && audioRunning) {
-          analyser.getByteTimeDomainData(buf);
-          let peak = 0;
-          for (let i = 0; i < buf.length; i++) {
-            const v = (buf[i] - 128) / 128;
-            peak = Math.max(peak, Math.abs(v));
-            const x = (i / (buf.length - 1)) * w;
-            const y = h / 2 + v * (h * 0.42);
-            if (i === 0) sctx.moveTo(x, y);
-            else sctx.lineTo(x, y);
-          }
-          const hot = driveEnabled || kEmphasis.value > 6.5 || peak > 0.25;
-          overloadLed.on = hot && peak > 0.02;
-          overloadLed.intensity = Math.min(1, peak * 2.2 + (driveEnabled ? 0.45 : 0));
-        } else {
-          overloadLed.on = false;
-          for (let x = 0; x <= w; x += 4) {
-            const y = h / 2 + Math.sin(x * 0.04 + nowSec * 2) * 2.5;
-            if (x === 0) sctx.moveTo(x, y);
-            else sctx.lineTo(x, y);
-          }
+        analyser.getByteTimeDomainData(buf);
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          peak = Math.max(peak, Math.abs(v));
+          const x = (i / (buf.length - 1)) * w;
+          const y = h / 2 + v * (h * 0.42);
+          if (i === 0) sctx.moveTo(x, y);
+          else sctx.lineTo(x, y);
         }
         sctx.stroke();
-        requestAnimationFrame(drawScope);
+
+        // Throttle LED DOM updates (~20fps) to avoid layout/style churn on mobile
+        if (nowMs - lastLedTick >= 48) {
+          lastLedTick = nowMs;
+          const nowSec = nowMs / 1000;
+          const lfoPulse = 0.5 + 0.5 * Math.sin(nowSec * kLfoRate.value * Math.PI * 2);
+          lfoLed.on = filterModEnabled;
+          if (filterModEnabled) lfoLed.intensity = 0.18 + lfoPulse * 0.82;
+
+          const hot = driveEnabled || kEmphasis.value > 6.5 || peak > 0.25;
+          overloadLed.on = hot && peak > 0.02;
+          if (overloadLed.on) overloadLed.intensity = Math.min(1, peak * 2.2 + (driveEnabled ? 0.45 : 0));
+        }
+
+        scopeRaf = requestAnimationFrame(drawScope);
       }
-      requestAnimationFrame(drawScope);
+
+      function startScopeLoop() {
+        if (!scopeRaf) scopeRaf = requestAnimationFrame(drawScope);
+      }
+
+      drawStandbyScope();
 
       // ---- Gallery Endless Counter + Demo Switches -> LEDs ----
       const encFree = document.getElementById('encFree');

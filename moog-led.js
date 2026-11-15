@@ -1,15 +1,11 @@
 /**
  * <moog-led> — Reusable Vintage Jewel Pilot Lamp & Panel LED Indicator Component
  *
- * Variants:
- *  - variant="jewel" : Faceted Minimoog OVERLOAD-style glass jewel lamp in bezel housing
- *  - variant="flat"  : Crisp 5mm recessed diode LED with metallic collar
- *
- * Supports analog dimming via `intensity` (0..1) and optional automatic `blink` interval.
- *
- * @example
- * <moog-led label="OVERLOAD" color="amber" on></moog-led>
- * <moog-led label="LFO SYNC" variant="flat" color="red" blink="450"></moog-led>
+ * High-instance-count optimized:
+ *  - Shared adoptedStyleSheets singleton across all LED instances
+ *  - CSS `contain: layout style paint` isolation
+ *  - Static halo box-shadow animated purely via GPU `opacity` (zero repaint)
+ *  - Zero-JS CSS `@keyframes` blink (0 `setInterval` timers even with 100+ LEDs)
  */
 
 const LED_PALETTE = {
@@ -20,11 +16,95 @@ const LED_PALETTE = {
   pink: { core: '#fce7f3', mid: '#f472b6', dark: '#4a0d2d', glow: '244, 114, 182' },
 };
 
-const LED_SIZES = {
-  sm: 14,
-  md: 20,
-  lg: 28,
-};
+const LED_SIZES = { sm: 14, md: 20, lg: 28 };
+
+const LED_CSS_TEXT = `
+  :host {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    vertical-align: middle;
+    contain: layout style paint;
+    --moog-label-color: rgba(232, 230, 223, 0.72);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  .wrap {
+    display: inline-flex; align-items: center; gap: 6px;
+    flex-direction: var(--_led-dir, column);
+  }
+  .led-label {
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--moog-label-color);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+  }
+  .bezel {
+    position: relative;
+    width: var(--_bezel-size, 26px); height: var(--_bezel-size, 26px);
+    border-radius: 50%; padding: 3px; box-sizing: border-box;
+    background: var(--_bezel-bg);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 1px rgba(255,255,255,0.25);
+    display: grid; place-items: center;
+  }
+  .blink-gate {
+    position: relative; width: 100%; height: 100%; display: grid; place-items: center;
+  }
+  :host([blink]:not([blink="false"])) .blink-gate.is-on {
+    animation: moog-led-blink var(--_blink-dur, 1000ms) steps(1, end) infinite;
+  }
+  @keyframes moog-led-blink {
+    0%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0.08; }
+  }
+  .bulb-halo {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    opacity: 0; will-change: opacity;
+    box-shadow: 0 0 14px rgba(var(--_led-glow), 0.88), 0 0 28px rgba(var(--_led-glow), 0.52);
+    transition: opacity 70ms linear;
+  }
+  .bulb {
+    width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--_led-mid) 35%, transparent) 0%, var(--_led-dark) 75%, #09090b 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
+  }
+  .bulb-glow {
+    position: absolute; inset: 0; border-radius: 50%; opacity: 0; will-change: opacity;
+    background: radial-gradient(circle at 38% 34%, var(--_led-core) 0%, var(--_led-mid) 54%, var(--_led-dark) 100%);
+    transition: opacity 70ms linear;
+  }
+  .bulb.is-jewel::before {
+    content: ''; position: absolute; inset: 14%; border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255,255,255,0.28) 0deg 30deg, rgba(0,0,0,0.18) 30deg 60deg,
+      rgba(255,255,255,0.22) 60deg 90deg, rgba(0,0,0,0.18) 90deg 120deg,
+      rgba(255,255,255,0.28) 120deg 150deg, rgba(0,0,0,0.18) 150deg 180deg,
+      rgba(255,255,255,0.22) 180deg 210deg, rgba(0,0,0,0.18) 210deg 240deg,
+      rgba(255,255,255,0.28) 240deg 270deg, rgba(0,0,0,0.18) 270deg 300deg,
+      rgba(255,255,255,0.22) 300deg 330deg, rgba(0,0,0,0.18) 330deg 360deg
+    );
+    mix-blend-mode: overlay; z-index: 2; pointer-events: none;
+  }
+  .bulb::after {
+    content: ''; position: absolute; top: 14%; left: 20%; width: 34%; height: 24%;
+    border-radius: 50%; background: rgba(255,255,255,0.55); transform: rotate(-28deg);
+    z-index: 3; pointer-events: none;
+  }
+`;
+
+let sharedLedSheet = null;
+function getLedSheet() {
+  if (!sharedLedSheet && typeof CSSStyleSheet !== 'undefined') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(LED_CSS_TEXT);
+      sharedLedSheet = sheet;
+    } catch (_) {
+      sharedLedSheet = null;
+    }
+  }
+  return sharedLedSheet;
+}
 
 export class MoogLed extends HTMLElement {
   static get observedAttributes() {
@@ -36,20 +116,14 @@ export class MoogLed extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._on = false;
     this._intensity = 1;
-    this._blinkPhase = true;
-    this._blinkTimer = null;
     this._rendered = false;
+    this._renderPending = false;
   }
 
   connectedCallback() {
     this._syncStateFromAttrs();
     this._render();
     this._updateVisuals();
-    this._setupBlink();
-  }
-
-  disconnectedCallback() {
-    clearInterval(this._blinkTimer);
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -60,14 +134,21 @@ export class MoogLed extends HTMLElement {
       return;
     }
     if (name === 'blink') {
-      this._setupBlink();
-      if (this._rendered) this._updateVisuals();
+      if (this._rendered) this._updateBlinkVar();
       return;
     }
-    if (this._rendered) {
+    if (this._rendered) this._scheduleRender();
+  }
+
+  _scheduleRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    queueMicrotask(() => {
+      this._renderPending = false;
+      if (!this.isConnected) return;
       this._render();
       this._updateVisuals();
-    }
+    });
   }
 
   _syncStateFromAttrs() {
@@ -82,9 +163,7 @@ export class MoogLed extends HTMLElement {
     }
   }
 
-  get on() {
-    return this._on;
-  }
+  get on() { return this._on; }
   set on(v) {
     const next = Boolean(v);
     if (next !== this._on) {
@@ -98,26 +177,12 @@ export class MoogLed extends HTMLElement {
     }
   }
 
-  get intensity() {
-    return this._intensity;
-  }
+  get intensity() { return this._intensity; }
   set intensity(v) {
     const n = Math.min(1, Math.max(0, Number(v) || 0));
+    if (Math.abs(n - this._intensity) < 0.005) return;
     this._intensity = n;
-    this.setAttribute('intensity', String(n));
     if (this._rendered) this._updateVisuals();
-  }
-
-  _setupBlink() {
-    clearInterval(this._blinkTimer);
-    this._blinkPhase = true;
-    if (!this.hasAttribute('blink') || this.getAttribute('blink') === 'false') return;
-    const rawMs = Number(this.getAttribute('blink'));
-    const ms = Number.isFinite(rawMs) && rawMs >= 60 ? rawMs : 500;
-    this._blinkTimer = setInterval(() => {
-      this._blinkPhase = !this._blinkPhase;
-      this._updateVisuals();
-    }, ms);
   }
 
   _getSizePx() {
@@ -125,6 +190,18 @@ export class MoogLed extends HTMLElement {
     if (LED_SIZES[raw]) return LED_SIZES[raw];
     const n = Number(raw);
     return Number.isFinite(n) && n >= 8 ? n : LED_SIZES.md;
+  }
+
+  _getBlinkDurationMs() {
+    const rawMs = Number(this.getAttribute('blink'));
+    const half = Number.isFinite(rawMs) && rawMs >= 60 ? rawMs : 500;
+    return half * 2;
+  }
+
+  _updateBlinkVar() {
+    if (this._wrapEl) {
+      this._wrapEl.style.setProperty('--_blink-dur', `${this._getBlinkDurationMs()}ms`);
+    }
   }
 
   _render() {
@@ -148,146 +225,49 @@ export class MoogLed extends HTMLElement {
           ? 'linear-gradient(135deg, #f3d78a 0%, #8a6a24 55%, #d4af53 100%)'
           : 'linear-gradient(135deg, #32353b 0%, #0a0b0d 65%, #23252a 100%)';
 
+    const dir = labelPos === 'right' || labelPos === 'left' ? 'row' : 'column';
     const labelHtml = label ? `<span class="led-label">${this._esc(label)}</span>` : '';
+    const sheet = getLedSheet();
+    const useAdopted = sheet && this.shadowRoot.adoptedStyleSheets !== undefined;
+    const styleVars = `--_led-dir:${dir};--_bezel-size:${sizePx + 6}px;--_bezel-bg:${bezelGrad};--_led-core:${pal.core};--_led-mid:${pal.mid};--_led-dark:${pal.dark};--_led-glow:${pal.glow};--_blink-dur:${this._getBlinkDurationMs()}ms;`;
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          user-select: none;
-          vertical-align: middle;
-          --moog-label-color: rgba(232, 230, 223, 0.72);
-          font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        }
-        .wrap {
-          display: inline-flex;
-          flex-direction: ${labelPos === 'right' || labelPos === 'left' ? 'row' : 'column'};
-          align-items: center;
-          gap: 6px;
-        }
-        .led-label {
-          font-size: 9.5px;
-          font-weight: 800;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--moog-label-color);
-          text-shadow: 0 1px 2px rgba(0,0,0,0.85);
-        }
-        .bezel {
-          width: ${sizePx + 6}px;
-          height: ${sizePx + 6}px;
-          border-radius: 50%;
-          padding: 3px;
-          box-sizing: border-box;
-          background: ${bezelGrad};
-          box-shadow:
-            0 2px 6px rgba(0, 0, 0, 0.85),
-            0 0 0 1px rgba(255, 255, 255, 0.12),
-            inset 0 1px 1px rgba(255, 255, 255, 0.25);
-          display: grid;
-          place-items: center;
-        }
-        .bulb {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          position: relative;
-          overflow: hidden;
-          background: radial-gradient(circle at 38% 34%, ${pal.mid}55 0%, ${pal.dark} 75%, #09090b 100%);
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
-          transition: box-shadow 70ms linear, filter 70ms linear;
-        }
-        .bulb-glow {
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          opacity: 0;
-          background: ${
-            isJewel
-              ? `radial-gradient(circle at 38% 34%, ${pal.core} 0%, ${pal.mid} 50%, ${pal.dark} 100%)`
-              : `radial-gradient(circle at 40% 38%, ${pal.core} 0%, ${pal.mid} 68%, ${pal.dark} 100%)`
-          };
-          transition: opacity 70ms linear;
-        }
-        ${
-          isJewel
-            ? `
-        .bulb::before {
-          content: '';
-          position: absolute;
-          inset: 14%;
-          border-radius: 50%;
-          background: conic-gradient(
-            from 0deg,
-            rgba(255,255,255,0.28) 0deg 30deg,
-            rgba(0,0,0,0.18) 30deg 60deg,
-            rgba(255,255,255,0.22) 60deg 90deg,
-            rgba(0,0,0,0.18) 90deg 120deg,
-            rgba(255,255,255,0.28) 120deg 150deg,
-            rgba(0,0,0,0.18) 150deg 180deg,
-            rgba(255,255,255,0.22) 180deg 210deg,
-            rgba(0,0,0,0.18) 210deg 240deg,
-            rgba(255,255,255,0.28) 240deg 270deg,
-            rgba(0,0,0,0.18) 270deg 300deg,
-            rgba(255,255,255,0.22) 300deg 330deg,
-            rgba(0,0,0,0.18) 330deg 360deg
-          );
-          mix-blend-mode: overlay;
-          z-index: 2;
-          pointer-events: none;
-        }`
-            : ''
-        }
-        .bulb::after {
-          content: '';
-          position: absolute;
-          top: 14%;
-          left: 20%;
-          width: 34%;
-          height: 24%;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.55);
-          transform: rotate(-28deg);
-          z-index: 3;
-          pointer-events: none;
-        }
-      </style>
-      <div class="wrap" role="status" aria-label="${this._esc(label || 'LED Indicator')}">
+      ${useAdopted ? '' : `<style>${LED_CSS_TEXT}</style>`}
+      <div class="wrap" style="${styleVars}" role="status" aria-label="${this._esc(label || 'LED Indicator')}">
         ${labelPos === 'top' || labelPos === 'left' ? labelHtml : ''}
         <div class="bezel">
-          <div class="bulb" data-glow-rgb="${pal.glow}">
-            <div class="bulb-glow"></div>
+          <div class="blink-gate">
+            <div class="bulb-halo"></div>
+            <div class="bulb ${isJewel ? 'is-jewel' : ''}">
+              <div class="bulb-glow"></div>
+            </div>
           </div>
         </div>
         ${labelPos === 'bottom' || labelPos === 'right' ? labelHtml : ''}
       </div>
     `;
 
-    this._bulbEl = this.shadowRoot.querySelector('.bulb');
+    if (useAdopted) this.shadowRoot.adoptedStyleSheets = [sheet];
+
+    this._wrapEl = this.shadowRoot.querySelector('.wrap');
+    this._blinkGateEl = this.shadowRoot.querySelector('.blink-gate');
+    this._haloEl = this.shadowRoot.querySelector('.bulb-halo');
     this._glowEl = this.shadowRoot.querySelector('.bulb-glow');
     this._rendered = true;
   }
 
   _updateVisuals() {
     if (!this._rendered || !this._glowEl) return;
-    const effective = this._on && this._blinkPhase ? this._intensity : 0;
-    const rgb = this._bulbEl.dataset.glowRgb || '245, 158, 11';
-    this._glowEl.style.opacity = effective.toFixed(3);
-    if (effective > 0.02) {
-      this._bulbEl.style.boxShadow = `0 0 ${(14 * effective).toFixed(1)}px rgba(${rgb}, ${(0.88 * effective).toFixed(2)}), 0 0 ${(28 * effective).toFixed(1)}px rgba(${rgb}, ${(0.52 * effective).toFixed(2)}), inset 0 1px 2px rgba(255,255,255,0.45)`;
-    } else {
-      this._bulbEl.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.85)';
-    }
+    const effective = this._on ? this._intensity : 0;
+    const op = effective.toFixed(3);
+    this._glowEl.style.opacity = op;
+    if (this._haloEl) this._haloEl.style.opacity = op;
+    if (this._blinkGateEl) this._blinkGateEl.classList.toggle('is-on', this._on);
   }
 
   _esc(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 

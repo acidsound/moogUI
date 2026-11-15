@@ -1,12 +1,11 @@
 /**
  * <moog-switch> — Reusable Minimoog Model D Style Rocker & Toggle Switch Component
  *
- * Variants:
- *  - variant="rocker" : Iconic Minimoog Model D 3D illuminated rocker paddle
- *  - variant="toggle" : Precision SVG metallic bat-handle toggle switch with
- *                       center-fused ball pivot & zero-drift 3D foreshortening
- *
- * Includes built-in ON LED backlight illumination (disable with backlight="false").
+ * High-instance-count optimized:
+ *  - Shared adoptedStyleSheets singleton across all switch instances
+ *  - CSS `contain: layout style` isolation
+ *  - Microtask-batched attribute re-renders
+ *  - Precision SVG center-fused chrome bat toggle with zero-overshoot ease-out snap
  */
 
 const SWITCH_COLORS = {
@@ -57,14 +56,14 @@ const SWITCH_COLORS = {
   },
 };
 
-const SWITCH_SIZES = {
-  sm: 0.82,
-  md: 1,
-  lg: 1.24,
-};
+const SWITCH_SIZES = { sm: 0.82, md: 1, lg: 1.24 };
+
+const HEX_POINTS = Array.from({ length: 6 }, (_, i) => {
+  const a = (i * Math.PI) / 3 - Math.PI / 2;
+  return `${(30 + 14.5 * Math.cos(a)).toFixed(2)},${(30 + 14.5 * Math.sin(a)).toFixed(2)}`;
+}).join(' ');
 
 function buildToggleBatPath(cx, cy, tilt) {
-  // tilt: -1 = straight UP (ON), 0 = pointing toward camera, +1 = straight DOWN (OFF)
   const rBase = 3.8;
   const rTip = 6.1 - 0.7 * Math.abs(tilt);
   const tipY = cy + tilt * 18.5;
@@ -88,25 +87,139 @@ function buildToggleBatPath(cx, cy, tilt) {
     `A${rBase.toFixed(2)},${rBase.toFixed(2)} 0 1 ${sweep} ${(cx - rBase).toFixed(2)},${cy.toFixed(2)}`,
     'Z',
   ].join(' ');
-
   return { d, tipY, rTip };
+}
+
+const SWITCH_CSS_TEXT = `
+  :host {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    -webkit-user-select: none;
+    vertical-align: middle;
+    contain: layout style;
+    --moog-label-color: #e8e6df;
+    --moog-tag-color: rgba(232, 230, 223, 0.56);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  :host([disabled]) { opacity: 0.45; pointer-events: none; }
+  .wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    transform: scale(var(--_sw-scale, 1)); transform-origin: center center;
+  }
+  .sw-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--moog-label-color);
+    text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .rocker-wrap, .toggle-wrap { display: flex; align-items: center; gap: 5px; }
+  .rocker-wrap.vertical, .toggle-wrap.vertical { flex-direction: column; }
+  .rocker-wrap.horizontal, .toggle-wrap.horizontal { flex-direction: row; }
+  .state-tag {
+    font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--moog-tag-color);
+    transition: color 120ms ease;
+  }
+  :host([checked]) .tag-on { color: var(--_led-bright); }
+  :host(:not([checked])) .tag-off { color: #e8e6df; }
+  .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); }
+  .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); }
+  :host([checked]) .toggle-wrap.horizontal .tag-off { color: var(--_led-bright); }
+  :host(:not([checked])) .toggle-wrap.horizontal .tag-on { color: #e8e6df; }
+
+  .rocker-housing {
+    appearance: none; border: 1.5px solid #040406;
+    background: linear-gradient(180deg, #060608 0%, #141518 100%);
+    border-radius: 4px; padding: 3px; cursor: pointer; outline: none; position: relative;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12), inset 0 2px 5px rgba(0,0,0,0.9);
+  }
+  .rocker-housing.vertical { width: 28px; height: 46px; }
+  .rocker-housing.horizontal { width: 46px; height: 28px; }
+  .rocker-housing.has-backlight[aria-checked="true"] {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.75), 0 0 14px rgba(var(--_sw-glow), 0.45), 0 0 0 1px rgba(var(--_sw-glow), 0.55), inset 0 2px 5px rgba(0,0,0,0.9);
+  }
+  .rocker-housing:focus-visible, .toggle-housing:focus-visible {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.45);
+  }
+  .rocker-paddle {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; border-radius: 2.5px; position: relative; overflow: hidden;
+  }
+  .rocker-housing.vertical .rocker-paddle {
+    background: linear-gradient(180deg, var(--_sw-dark) 0%, var(--_sw-base) 46%, var(--_sw-lit) 100%);
+    box-shadow: inset 0 -5px 8px rgba(0,0,0,0.52), inset 0 2px 3px rgba(255,255,255,0.22);
+  }
+  .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
+    background: linear-gradient(180deg, var(--_sw-lit) 0%, var(--_sw-base) 54%, var(--_sw-dark) 100%);
+    box-shadow: inset 0 5px 8px rgba(0,0,0,0.42), inset 0 -2px 3px rgba(255,255,255,0.28);
+  }
+  .rocker-housing.horizontal .rocker-paddle {
+    background: linear-gradient(90deg, var(--_sw-lit) 0%, var(--_sw-base) 54%, var(--_sw-dark) 100%);
+    box-shadow: inset 5px 0 8px rgba(0,0,0,0.45), inset -2px 0 3px rgba(255,255,255,0.22);
+  }
+  .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
+    background: linear-gradient(90deg, var(--_sw-dark) 0%, var(--_sw-base) 46%, var(--_sw-lit) 100%);
+    box-shadow: inset -5px 0 8px rgba(0,0,0,0.42), inset 2px 0 3px rgba(255,255,255,0.28);
+  }
+  .paddle-backlight {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 120ms ease;
+  }
+  .rocker-housing.vertical .paddle-backlight {
+    background: radial-gradient(circle at 50% 24%, var(--_led-core) 0%, var(--_led-bright) 38%, transparent 78%);
+  }
+  .rocker-housing.horizontal .paddle-backlight {
+    background: radial-gradient(circle at 76% 50%, var(--_led-core) 0%, var(--_led-bright) 38%, transparent 78%);
+  }
+  .rocker-housing.has-backlight[aria-checked="true"] .paddle-backlight { opacity: 0.72; }
+  .paddle-led-slit {
+    position: absolute; border-radius: 999px; pointer-events: none;
+    background: rgba(0,0,0,0.36); border: 1px solid rgba(0,0,0,0.45);
+    transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  }
+  .rocker-housing.vertical .paddle-led-slit { width: 11px; height: 3.5px; top: 5px; left: 50%; transform: translateX(-50%); }
+  .rocker-housing.horizontal .paddle-led-slit { width: 3.5px; height: 11px; right: 5px; top: 50%; transform: translateY(-50%); }
+  .rocker-housing.has-backlight[aria-checked="true"] .paddle-led-slit {
+    background: var(--_led-core); border-color: var(--_led-bright);
+    box-shadow: 0 0 8px var(--_led-bright), 0 0 14px rgba(var(--_sw-glow), 0.95);
+  }
+  .paddle-ridge {
+    position: absolute; opacity: 0.65; border-radius: 1px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.28), var(--_sw-edge), rgba(0,0,0,0.28));
+  }
+  .rocker-housing.vertical .paddle-ridge { width: 82%; height: 2.5px; top: 50%; transform: translateY(-50%); }
+  .rocker-housing.horizontal .paddle-ridge { width: 2.5px; height: 82%; left: 50%; transform: translateX(-50%); }
+
+  .toggle-housing {
+    appearance: none; border: none; background: transparent;
+    width: 54px; height: 54px; padding: 0; cursor: pointer; outline: none;
+    display: block; border-radius: 10px;
+  }
+  .toggle-housing.horizontal { transform: rotate(90deg); }
+  .toggle-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .toggle-led-ring { opacity: 0; transition: opacity 120ms ease; }
+  .toggle-housing.has-backlight[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }
+`;
+
+let sharedSwitchSheet = null;
+function getSwitchSheet() {
+  if (!sharedSwitchSheet && typeof CSSStyleSheet !== 'undefined') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(SWITCH_CSS_TEXT);
+      sharedSwitchSheet = sheet;
+    } catch (_) {
+      sharedSwitchSheet = null;
+    }
+  }
+  return sharedSwitchSheet;
 }
 
 export class MoogSwitch extends HTMLElement {
   static get observedAttributes() {
     return [
-      'checked',
-      'label',
-      'label-position',
-      'on-label',
-      'off-label',
-      'variant',
-      'color',
-      'led-color',
-      'backlight',
-      'orientation',
-      'size',
-      'disabled',
+      'checked', 'label', 'label-position', 'on-label', 'off-label',
+      'variant', 'color', 'led-color', 'backlight', 'orientation', 'size', 'disabled',
     ];
   }
 
@@ -115,10 +228,10 @@ export class MoogSwitch extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._checked = false;
     this._rendered = false;
-    this._toggleTilt = 1; // +1 = OFF (down), -1 = ON (up)
+    this._renderPending = false;
+    this._toggleTilt = 1;
     this._animRaf = null;
     this._uid = `ms-${Math.random().toString(36).slice(2, 9)}`;
-
     this._onClick = this._onClick.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
   }
@@ -141,15 +254,21 @@ export class MoogSwitch extends HTMLElement {
       if (this._rendered) this._updateVisuals(true);
       return;
     }
-    if (this._rendered) {
-      this._render();
-      this._updateVisuals(false);
-    }
+    if (this._rendered) this._scheduleRender();
   }
 
-  get checked() {
-    return this._checked;
+  _scheduleRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    queueMicrotask(() => {
+      this._renderPending = false;
+      if (!this.isConnected) return;
+      this._render();
+      this._updateVisuals(false);
+    });
   }
+
+  get checked() { return this._checked; }
   set checked(val) {
     const next = Boolean(val);
     if (next !== this._checked) {
@@ -161,33 +280,23 @@ export class MoogSwitch extends HTMLElement {
   }
 
   get value() {
-    return this._checked
-      ? this.getAttribute('on-label') || 'ON'
-      : this.getAttribute('off-label') || 'OFF';
+    return this._checked ? this.getAttribute('on-label') || 'ON' : this.getAttribute('off-label') || 'OFF';
   }
 
-  get backlight() {
-    return this.getAttribute('backlight') !== 'false';
-  }
+  get backlight() { return this.getAttribute('backlight') !== 'false'; }
   set backlight(flag) {
     if (flag) this.removeAttribute('backlight');
     else this.setAttribute('backlight', 'false');
   }
 
-  get disabled() {
-    return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false';
-  }
+  get disabled() { return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false'; }
   set disabled(flag) {
     if (flag) this.setAttribute('disabled', '');
     else this.removeAttribute('disabled');
   }
 
-  get variant() {
-    return this.getAttribute('variant') === 'toggle' ? 'toggle' : 'rocker';
-  }
-  set variant(v) {
-    this.setAttribute('variant', v);
-  }
+  get variant() { return this.getAttribute('variant') === 'toggle' ? 'toggle' : 'rocker'; }
+  set variant(v) { this.setAttribute('variant', v); }
 
   toggle() {
     if (this.disabled) return;
@@ -206,16 +315,9 @@ export class MoogSwitch extends HTMLElement {
 
   _onKeyDown(e) {
     if (this.disabled) return;
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      this.toggle();
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      if (!this._checked) this.toggle();
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-      e.preventDefault();
-      if (this._checked) this.toggle();
-    }
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.toggle(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); if (!this._checked) this.toggle(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); if (this._checked) this.toggle(); }
   }
 
   _render() {
@@ -230,51 +332,32 @@ export class MoogSwitch extends HTMLElement {
     const customLed = this.getAttribute('led-color');
     const ledCore = customLed ? '#ffffff' : palette.ledCore;
     const ledBright = customLed || palette.ledBright;
-    const hasBacklight = this.backlight;
+    const blClass = this.backlight ? 'has-backlight' : '';
     const uid = this._uid;
 
     const labelHtml = label ? `<div class="sw-label">${this._esc(label)}</div>` : '';
 
     const rockerBodyHtml = isVert
-      ? `
-        <div class="rocker-wrap vertical">
+      ? `<div class="rocker-wrap vertical">
           <span class="state-tag tag-on">${this._esc(onLabel)}</span>
-          <button class="rocker-housing vertical" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
-            <span class="rocker-paddle">
-              <span class="paddle-backlight"></span>
-              <span class="paddle-led-slit"></span>
-              <span class="paddle-ridge"></span>
-            </span>
+          <button class="rocker-housing vertical ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+            <span class="rocker-paddle"><span class="paddle-backlight"></span><span class="paddle-led-slit"></span><span class="paddle-ridge"></span></span>
           </button>
           <span class="state-tag tag-off">${this._esc(offLabel)}</span>
-        </div>
-      `
-      : `
-        <div class="rocker-wrap horizontal">
+        </div>`
+      : `<div class="rocker-wrap horizontal">
           <span class="state-tag tag-off">${this._esc(offLabel)}</span>
-          <button class="rocker-housing horizontal" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
-            <span class="rocker-paddle">
-              <span class="paddle-backlight"></span>
-              <span class="paddle-led-slit"></span>
-              <span class="paddle-ridge"></span>
-            </span>
+          <button class="rocker-housing horizontal ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+            <span class="rocker-paddle"><span class="paddle-backlight"></span><span class="paddle-led-slit"></span><span class="paddle-ridge"></span></span>
           </button>
           <span class="state-tag tag-on">${this._esc(onLabel)}</span>
-        </div>
-      `;
-
-    // Hex nut points around exact center (30, 30), radius 14.5
-    const hexPts = Array.from({ length: 6 }, (_, i) => {
-      const a = (i * Math.PI) / 3 - Math.PI / 2;
-      return `${(30 + 14.5 * Math.cos(a)).toFixed(2)},${(30 + 14.5 * Math.sin(a)).toFixed(2)}`;
-    }).join(' ');
+        </div>`;
 
     const initBat = buildToggleBatPath(30, 30, this._toggleTilt);
-
     const toggleBodyHtml = `
       <div class="toggle-wrap ${isVert ? 'vertical' : 'horizontal'}">
         <span class="state-tag tag-on">${this._esc(isVert ? onLabel : offLabel)}</span>
-        <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+        <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'} ${blClass}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
           <svg class="toggle-svg" viewBox="0 0 60 60" aria-hidden="true">
             <defs>
               <radialGradient id="${uid}-glow" cx="50%" cy="50%" r="50%">
@@ -283,38 +366,22 @@ export class MoogSwitch extends HTMLElement {
                 <stop offset="100%" stop-color="${ledBright}" stop-opacity="0" />
               </radialGradient>
               <linearGradient id="${uid}-nut" x1="15%" y1="10%" x2="85%" y2="90%">
-                <stop offset="0%" stop-color="#e2e8f0" />
-                <stop offset="50%" stop-color="#8b949e" />
-                <stop offset="100%" stop-color="#4b525a" />
+                <stop offset="0%" stop-color="#e2e8f0" /><stop offset="50%" stop-color="#8b949e" /><stop offset="100%" stop-color="#4b525a" />
               </linearGradient>
               <radialGradient id="${uid}-well" cx="50%" cy="50%" r="50%">
-                <stop offset="45%" stop-color="#050507" />
-                <stop offset="85%" stop-color="#1e2126" />
-                <stop offset="100%" stop-color="#474d56" />
+                <stop offset="45%" stop-color="#050507" /><stop offset="85%" stop-color="#1e2126" /><stop offset="100%" stop-color="#474d56" />
               </radialGradient>
               <linearGradient id="${uid}-chrome" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#474e57" />
-                <stop offset="28%" stop-color="#f1f5f9" />
-                <stop offset="52%" stop-color="#cbd5e1" />
-                <stop offset="78%" stop-color="#64748b" />
-                <stop offset="100%" stop-color="#334155" />
+                <stop offset="0%" stop-color="#474e57" /><stop offset="28%" stop-color="#f1f5f9" /><stop offset="52%" stop-color="#cbd5e1" /><stop offset="78%" stop-color="#64748b" /><stop offset="100%" stop-color="#334155" />
               </linearGradient>
               <radialGradient id="${uid}-tipglint" cx="35%" cy="32%" r="60%">
-                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
-                <stop offset="55%" stop-color="#e2e8f0" stop-opacity="0.35" />
-                <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" /><stop offset="55%" stop-color="#e2e8f0" stop-opacity="0.35" /><stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
               </radialGradient>
             </defs>
-
-            <!-- Backlight Ring behind Hex Nut -->
             <circle class="toggle-led-ring" cx="30" cy="30" r="22" fill="url(#${uid}-glow)" />
-
-            <!-- Hex Mounting Nut & Recessed Washer -->
-            <polygon points="${hexPts}" fill="url(#${uid}-nut)" stroke="#1a1c20" stroke-width="1" />
+            <polygon points="${HEX_POINTS}" fill="url(#${uid}-nut)" stroke="#1a1c20" stroke-width="1" />
             <circle cx="30" cy="30" r="10.2" fill="#2c3037" stroke="rgba(255,255,255,0.22)" stroke-width="0.7" />
             <circle cx="30" cy="30" r="8.2" fill="url(#${uid}-well)" />
-
-            <!-- Center-Fused Ball Pivot & Unified Chrome Bat Handle -->
             <path class="bat-shadow" d="${initBat.d}" fill="rgba(0,0,0,0.62)" transform="translate(2.2, 2.8)" />
             <circle cx="30" cy="30" r="4.6" fill="url(#${uid}-chrome)" stroke="#0f1115" stroke-width="0.6" />
             <path class="bat-shaft" d="${initBat.d}" fill="url(#${uid}-chrome)" stroke="#1e242c" stroke-width="0.65" />
@@ -322,232 +389,22 @@ export class MoogSwitch extends HTMLElement {
           </svg>
         </button>
         <span class="state-tag tag-off">${this._esc(isVert ? offLabel : onLabel)}</span>
-      </div>
-    `;
+      </div>`;
+
+    const sheet = getSwitchSheet();
+    const useAdopted = sheet && this.shadowRoot.adoptedStyleSheets !== undefined;
+    const styleVars = `--_sw-scale:${scale};--_sw-base:${palette.base};--_sw-lit:${palette.lit};--_sw-dark:${palette.dark};--_sw-edge:${palette.edge};--_sw-glow:${palette.glow};--_led-core:${ledCore};--_led-bright:${ledBright};`;
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          user-select: none;
-          -webkit-user-select: none;
-          vertical-align: middle;
-          --moog-label-color: #e8e6df;
-          --moog-tag-color: rgba(232, 230, 223, 0.56);
-          --moog-tag-active: ${ledBright};
-          font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-        }
-        :host([disabled]) {
-          opacity: 0.45;
-          pointer-events: none;
-        }
-        .wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 5px;
-          transform: scale(${scale});
-          transform-origin: center center;
-        }
-        .sw-label {
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--moog-label-color);
-          text-align: center;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-        }
-        .rocker-wrap, .toggle-wrap {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-        }
-        .rocker-wrap.vertical, .toggle-wrap.vertical {
-          flex-direction: column;
-        }
-        .rocker-wrap.horizontal, .toggle-wrap.horizontal {
-          flex-direction: row;
-        }
-        .state-tag {
-          font-size: 8.5px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--moog-tag-color);
-          transition: color 120ms ease, text-shadow 120ms ease;
-        }
-        :host([checked]) .tag-on {
-          color: var(--moog-tag-active);
-          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
-        }
-        :host(:not([checked])) .tag-off {
-          color: #e8e6df;
-        }
-        .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); text-shadow: none; }
-        .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); text-shadow: none; }
-        :host([checked]) .toggle-wrap.horizontal .tag-off {
-          color: var(--moog-tag-active);
-          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
-        }
-        :host(:not([checked])) .toggle-wrap.horizontal .tag-on {
-          color: #e8e6df;
-        }
-
-        /* ---- Minimoog 3D Illuminated Rocker Paddle ---- */
-        .rocker-housing {
-          appearance: none;
-          border: 1.5px solid #040406;
-          background: linear-gradient(180deg, #060608 0%, #141518 100%);
-          border-radius: 4px;
-          padding: 3px;
-          cursor: pointer;
-          outline: none;
-          position: relative;
-          box-shadow:
-            0 3px 8px rgba(0, 0, 0, 0.75),
-            0 0 0 1px rgba(255, 255, 255, 0.12),
-            inset 0 2px 5px rgba(0, 0, 0, 0.9);
-          transition: box-shadow 140ms ease;
-        }
-        .rocker-housing.vertical { width: 28px; height: 46px; }
-        .rocker-housing.horizontal { width: 46px; height: 28px; }
-        ${
-          hasBacklight
-            ? `
-        .rocker-housing[aria-checked="true"] {
-          box-shadow:
-            0 3px 8px rgba(0, 0, 0, 0.75),
-            0 0 14px rgba(${palette.glow}, 0.45),
-            0 0 0 1px rgba(${palette.glow}, 0.55),
-            inset 0 2px 5px rgba(0, 0, 0, 0.9);
-        }`
-            : ''
-        }
-        .rocker-housing:focus-visible,
-        .toggle-housing:focus-visible {
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.45);
-        }
-
-        .rocker-paddle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          border-radius: 2.5px;
-          position: relative;
-          overflow: hidden;
-          transition: background 140ms ease, box-shadow 140ms ease;
-        }
-
-        .rocker-housing.vertical .rocker-paddle {
-          background: linear-gradient(180deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow: inset 0 -5px 8px rgba(0, 0, 0, 0.52), inset 0 2px 3px rgba(255, 255, 255, 0.22);
-        }
-        .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
-          background: linear-gradient(180deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow: inset 0 5px 8px rgba(0, 0, 0, 0.42), inset 0 -2px 3px rgba(255, 255, 255, 0.28);
-        }
-        .rocker-housing.horizontal .rocker-paddle {
-          background: linear-gradient(90deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow: inset 5px 0 8px rgba(0, 0, 0, 0.45), inset -2px 0 3px rgba(255, 255, 255, 0.22);
-        }
-        .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
-          background: linear-gradient(90deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow: inset -5px 0 8px rgba(0, 0, 0, 0.42), inset 2px 0 3px rgba(255, 255, 255, 0.28);
-        }
-
-        .paddle-backlight {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-        .rocker-housing.vertical .paddle-backlight {
-          background: radial-gradient(circle at 50% 24%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
-        }
-        .rocker-housing.horizontal .paddle-backlight {
-          background: radial-gradient(circle at 76% 50%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
-        }
-        ${hasBacklight ? `.rocker-housing[aria-checked="true"] .paddle-backlight { opacity: 0.72; }` : ''}
-
-        .paddle-led-slit {
-          position: absolute;
-          border-radius: 999px;
-          pointer-events: none;
-          background: rgba(0, 0, 0, 0.36);
-          border: 1px solid rgba(0, 0, 0, 0.45);
-          transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-        }
-        .rocker-housing.vertical .paddle-led-slit {
-          width: 11px; height: 3.5px; top: 5px; left: 50%; transform: translateX(-50%);
-        }
-        .rocker-housing.horizontal .paddle-led-slit {
-          width: 3.5px; height: 11px; right: 5px; top: 50%; transform: translateY(-50%);
-        }
-        ${
-          hasBacklight
-            ? `
-        .rocker-housing[aria-checked="true"] .paddle-led-slit {
-          background: ${ledCore};
-          border-color: ${ledBright};
-          box-shadow: 0 0 8px ${ledBright}, 0 0 14px rgba(${palette.glow}, 0.95);
-        }`
-            : ''
-        }
-
-        .paddle-ridge {
-          position: absolute;
-          background: linear-gradient(90deg, rgba(0,0,0,0.28), ${palette.edge}, rgba(0,0,0,0.28));
-          opacity: 0.65;
-          border-radius: 1px;
-        }
-        .rocker-housing.vertical .paddle-ridge {
-          width: 82%; height: 2.5px; top: 50%; transform: translateY(-50%);
-        }
-        .rocker-housing.horizontal .paddle-ridge {
-          width: 2.5px; height: 82%; left: 50%; transform: translateX(-50%);
-        }
-
-        /* ---- Precision SVG Toggle Switch ---- */
-        .toggle-housing {
-          appearance: none;
-          border: none;
-          background: transparent;
-          width: 54px;
-          height: 54px;
-          padding: 0;
-          cursor: pointer;
-          outline: none;
-          display: block;
-          border-radius: 10px;
-        }
-        .toggle-housing.horizontal {
-          transform: rotate(90deg);
-        }
-        .toggle-svg {
-          width: 100%;
-          height: 100%;
-          display: block;
-          overflow: visible;
-        }
-        .toggle-led-ring {
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-        ${hasBacklight ? `.toggle-housing[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }` : ''}
-      </style>
-
-      <div class="wrap">
+      ${useAdopted ? '' : `<style>${SWITCH_CSS_TEXT}</style>`}
+      <div class="wrap" style="${styleVars}">
         ${labelPos === 'top' ? labelHtml : ''}
         ${isToggle ? toggleBodyHtml : rockerBodyHtml}
         ${labelPos === 'bottom' ? labelHtml : ''}
       </div>
     `;
+
+    if (useAdopted) this.shadowRoot.adoptedStyleSheets = [sheet];
 
     this._btnEl = this.shadowRoot.querySelector('button[role="switch"]');
     this._batShaftEl = this.shadowRoot.querySelector('.bat-shaft');
@@ -574,7 +431,6 @@ export class MoogSwitch extends HTMLElement {
   _updateVisuals(animate = true) {
     if (!this._rendered || !this._btnEl) return;
     this._btnEl.setAttribute('aria-checked', String(this._checked));
-
     if (this.variant !== 'toggle' || !this._batShaftEl) return;
 
     const targetTilt = this._checked ? -1 : 1;
@@ -589,27 +445,19 @@ export class MoogSwitch extends HTMLElement {
 
     const duration = 95;
     const startTime = performance.now();
-
     const step = (now) => {
       const p = Math.min(1, (now - startTime) / duration);
-      // Crisp ease-out cubic: zero overshoot, zero wobble
       const eased = 1 - Math.pow(1 - p, 3);
       this._applyToggleTilt(startTilt + (targetTilt - startTilt) * eased);
-      if (p < 1) {
-        this._animRaf = requestAnimationFrame(step);
-      } else {
-        this._animRaf = null;
-      }
+      if (p < 1) this._animRaf = requestAnimationFrame(step);
+      else this._animRaf = null;
     };
     this._animRaf = requestAnimationFrame(step);
   }
 
   _esc(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 
