@@ -1,0 +1,36 @@
+{
+  "name": "moog-knob",
+  "version": "1.0.0",
+  "description": "Reusable Minimoog Model D style rotary knob Web Component (<moog-knob>) with live Web Audio synth demo",
+  "type": "module",
+  "main": "./moog-knob.js",
+  "module": "./moog-knob.js",
+  "types": "./moog-knob.d.ts",
+  "exports": {
+    ".": {
+      "types": "./moog-knob.d.ts",
+      "import": "./moog-knob.js"
+    }
+  },
+  "files": [
+    "moog-knob.js",
+    "moog-knob.d.ts",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acidsound/knobComponent.git"
+  },
+  "homepage": "https://acidsound.github.io/knobComponent/",
+  "keywords": [
+    "web-components",
+    "custom-elements",
+    "knob",
+    "rotary-knob",
+    "minimoog",
+    "synth",
+    "web-audio",
+    "ui-component"
+  ],
+  "license": "MIT"
+}

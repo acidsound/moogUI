@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minimoog Model D Knob — Web UI Component & Live Synth Demo</title>
+  <style>
+    :root {
+      --bg-app: #0c0d0f;
+      --walnut-dark: #2c180c;
+      --walnut-mid: #4e2b16;
+      --walnut-light: #6b3c1f;
+      --panel-top: #1a1b1e;
+      --panel-bottom: #0f1012;
+      --silkscreen: #e9e6dd;
+      --silkscreen-dim: rgba(233, 230, 221, 0.56);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.55);
+      --moog-orange: #d95224;
+      --moog-blue: #4c6d7a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.06) 0%, transparent 55%),
+        linear-gradient(180deg, #111215 0%, #090a0c 100%);
+      color: var(--silkscreen);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px 16px 56px;
+    }
+
+    .page-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* Top Title & Tips */
+    .hero-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 4px;
+    }
+
+    .hero-title h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #f4f1e8;
+    }
+
+    .hero-title p {
+      margin: 5px 0 0;
+      font-size: 13px;
+      color: var(--silkscreen-dim);
+      line-height: 1.45;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill-hint {
+      font-size: 11px;
+      color: #d6d2c7;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 999px;
+      padding: 5px 11px;
+      letter-spacing: 0.02em;
+    }
+
+    .pill-hint strong {
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    /* Authentic Walnut + Crinkle Aluminum Minimoog Chassis */
+    .synth-chassis {
+      display: grid;
+      grid-template-columns: 22px 1fr 22px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .wood-cheek {
+      background:
+        repeating-linear-gradient(
+          92deg,
+          rgba(0, 0, 0, 0.14) 0px,
+          rgba(0, 0, 0, 0.14) 2px,
+          transparent 2px,
+          transparent 7px
+        ),
+        linear-gradient(180deg, var(--walnut-light) 0%, var(--walnut-mid) 45%, var(--walnut-dark) 100%);
+      box-shadow:
+        inset 1px 0 2px rgba(255, 255, 255, 0.15),
+        inset -1px 0 3px rgba(0, 0, 0, 0.7);
+    }
+
+    .synth-faceplate {
+      background:
+        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+        repeating-radial-gradient(
+          circle at 0 0,
+          rgba(255, 255, 255, 0.012) 0,
+          rgba(0, 0, 0, 0.02) 1px,
+          transparent 2px
+        ),
+        linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bottom) 100%);
+      padding: 18px 20px 20px;
+      border-top: 2px solid #303238;
+      border-bottom: 3px solid #060608;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Faceplate Header Bar */
+    .face-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1.5px solid rgba(233, 230, 221, 0.25);
+    }
+
+    .moog-badge {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .moog-wordmark {
+      font-size: 21px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #f4f1e8;
+      line-height: 1;
+    }
+
+    .moog-sub {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--silkscreen-dim);
+      margin-top: 4px;
+    }
+
+    .header-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .power-btn {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: linear-gradient(180deg, #2b2d33 0%, #191a1e 100%);
+      color: #f4f1e8;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 9px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      transition: all 140ms ease;
+    }
+
+    .power-btn:hover {
+      border-color: rgba(245, 158, 11, 0.6);
+    }
+
+    .power-btn.is-on {
+      background: linear-gradient(180deg, #3c2710 0%, #241607 100%);
+      border-color: var(--amber);
+      color: #fde68a;
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    .led-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #42290a;
+      border: 1px solid rgba(0, 0, 0, 0.7);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+      transition: all 120ms ease;
+    }
+
+    .power-btn.is-on .led-dot {
+      background: #fbbf24;
+      box-shadow: 0 0 8px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.8);
+    }
+
+    /* Iconic Amber OVERLOAD Lamp */
+    .overload-lamp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--silkscreen-dim);
+    }
+
+    .overload-bulb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 35%, #7c4d10 0%, #3a2204 70%, #1a0f02 100%);
+      border: 2px solid #09090b;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 2px 3px rgba(0, 0, 0, 0.7);
+      transition: background 60ms linear, box-shadow 60ms linear;
+    }
+
+    .overload-bulb.lit {
+      background: radial-gradient(circle at 38% 35%, #fff3c4 0%, #f59e0b 52%, #b45309 100%);
+      box-shadow:
+        0 0 12px rgba(245, 158, 11, 0.9),
+        0 0 26px rgba(245, 158, 11, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.25);
+    }
+
+    /* Mini Oscilloscope */
+    .scope-box {
+      width: 170px;
+      height: 38px;
+      border-radius: 5px;
+      background: #060809;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.9);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .scope-box canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Synth Sections Grid */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: 1.18fr 1.25fr 0.92fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 980px) {
+      .modules-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .synth-module {
+      border: 1.5px solid rgba(233, 230, 221, 0.22);
+      border-radius: 6px;
+      padding: 14px 12px 16px;
+      background: rgba(0, 0, 0, 0.18);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      position: relative;
+    }
+
+    .module-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--silkscreen);
+      text-align: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(233, 230, 221, 0.16);
+    }
+
+    .knob-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-around;
+      gap: 10px 6px;
+    }
+
+    /* Vintage Moog Rocker Switches */
+    .rocker-strip {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 18px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(233, 230, 221, 0.12);
+    }
+
+    .rocker-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .rocker-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--silkscreen-dim);
+    }
+
+    .rocker-btn {
+      appearance: none;
+      width: 46px;
+      height: 26px;
+      padding: 2px;
+      border-radius: 4px;
+      border: 1.5px solid #050507;
+      background: #0a0b0d;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .rocker-paddle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+      padding: 0 5px;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.85);
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    .rocker-btn.orange .rocker-paddle {
+      background: linear-gradient(90deg, #9a3412 0%, #ea580c 50%, #c2410c 100%);
+    }
+
+    .rocker-btn.blue .rocker-paddle {
+      background: linear-gradient(90deg, #334a54 0%, #5b7c8a 50%, #3b535e 100%);
+    }
+
+    .rocker-btn[aria-pressed="true"] .rocker-paddle {
+      box-shadow: inset 6px 0 8px rgba(0, 0, 0, 0.45), inset -2px 0 4px rgba(255, 255, 255, 0.25);
+      filter: brightness(1.15);
+    }
+
+    .rocker-btn[aria-pressed="false"] .rocker-paddle {
+      box-shadow: inset -6px 0 8px rgba(0, 0, 0, 0.5), inset 2px 0 4px rgba(255, 255, 255, 0.18);
+      filter: brightness(0.82);
+    }
+
+    /* Playable Mini Keyboard */
+    .keyboard-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1.5px solid rgba(233, 230, 221, 0.22);
+    }
+
+    .keyboard-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--silkscreen-dim);
+      letter-spacing: 0.06em;
+    }
+
+    .piano-keys {
+      position: relative;
+      height: 82px;
+      display: flex;
+      user-select: none;
+      -webkit-user-select: none;
+      background: #08080a;
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 3px;
+    }
+
+    .key-white {
+      flex: 1;
+      background: linear-gradient(180deg, #f3f1ea 0%, #dedad0 88%, #c5c0b4 100%);
+      border: 1px solid #222;
+      border-radius: 0 0 5px 5px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 6px;
+      color: #444;
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+      transition: transform 50ms ease, background 50ms ease;
+    }
+
+    .key-white.active {
+      background: linear-gradient(180deg, #fde68a 0%, #f59e0b 100%);
+      color: #1f1302;
+      transform: translateY(2px);
+    }
+
+    .key-black-slot {
+      position: relative;
+      width: 0;
+      z-index: 3;
+    }
+
+    .key-black {
+      position: absolute;
+      left: -17px;
+      top: 0;
+      width: 31px;
+      height: 48px;
+      background: linear-gradient(180deg, #2a2c31 0%, #101114 85%, #060608 100%);
+      border: 1px solid #000;
+      border-radius: 0 0 4px 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 5px;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 9px;
+      font-weight: 700;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      transition: transform 50ms ease, background 50ms ease;
+    }
+
+    .key-black.active {
+      background: linear-gradient(180deg, #d97706 0%, #92400e 100%);
+      color: #fff;
+      transform: translateY(2px);
+    }
+
+    /* Component Playground Card */
+    .playground-card {
+      background: linear-gradient(180deg, #16171b 0%, #101114 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .playground-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .playground-header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #f4f1e8;
+    }
+
+    .playground-header span {
+      font-size: 12px;
+      color: var(--silkscreen-dim);
+    }
+
+    .playground-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .playground-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .preview-stage {
+      min-height: 290px;
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.04) 0%, transparent 65%),
+        #0b0c0e;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      gap: 14px;
+    }
+
+    .controls-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 12px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 12px;
+    }
+
+    .ctrl-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--silkscreen-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ctrl-group select,
+    .ctrl-group input[type="text"] {
+      background: #0a0b0d;
+      color: #f4f1e8;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 12.5px;
+      font-family: inherit;
+    }
+
+    .toggle-row {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-top: 4px;
+    }
+
+    .chk-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #e4e0d5;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .chk-pill input {
+      accent-color: var(--amber);
+    }
+
+    .code-and-log {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 820px) {
+      .code-and-log {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .code-box,
+    .log-box {
+      background: #07080a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #d7d3c8;
+      overflow-x: auto;
+    }
+
+    .box-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--silkscreen-dim);
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f4f1e8;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--amber);
+    }
+
+    .log-entries {
+      max-height: 115px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-line {
+      white-space: nowrap;
+    }
+
+    .log-type-input {
+      color: #fbbf24;
+    }
+
+    .log-type-change {
+      color: #34d399;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero-bar">
+      <div class="hero-title">
+        <h1>Minimoog Model D Style &lt;moog-knob&gt; Component</h1>
+        <p>eBay 146240621533 대형 스커트 노브 기반 재사용 가능 Web Component + Web Audio API 실시간 신시사이저 데모</p>
+      </div>
+      <div class="hero-badges">
+        <span class="pill-hint"><strong>Drag</strong> 상하/원형 회전</span>
+        <span class="pill-hint"><strong>Shift + Drag</strong> 정밀 미세조절</span>
+        <span class="pill-hint"><strong>Double-Click</strong> 기본값 리셋</span>
+        <span class="pill-hint"><strong>Wheel / Arrows</strong> 단계 조절</span>
+      </div>
+    </header>
+
+    <!-- Working Minimoog Model D Web Audio Synth Demo -->
+    <section class="synth-chassis" aria-label="Minimoog Model D Live Synthesizer">
+      <div class="wood-cheek"></div>
+
+      <div class="synth-faceplate">
+        <div class="face-header">
+          <div class="moog-badge">
+            <div>
+              <div class="moog-wordmark">MINIMOOG <span style="font-weight:400;font-size:14px;letter-spacing:0.08em;color:#cfc9bc;">MODEL D</span></div>
+              <div class="moog-sub">Web Audio Synthesizer &amp; Custom Element Showcase</div>
+            </div>
+          </div>
+
+          <div class="header-controls">
+            <div class="scope-box" title="Live Oscillator / Filter Waveform">
+              <canvas id="scopeCanvas" width="340" height="76"></canvas>
+            </div>
+
+            <div class="overload-lamp" title="Filter Drive / Resonance Overload Indicator">
+              <div id="overloadBulb" class="overload-bulb"></div>
+              <span>OVERLOAD</span>
+            </div>
+
+            <button id="powerBtn" class="power-btn" type="button" aria-pressed="false">
+              <span class="led-dot"></span>
+              <span id="powerLabel">POWER / DRONE OFF</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modules-grid">
+          <!-- OSCILLATOR BANK -->
+          <div class="synth-module">
+            <div class="module-title">Oscillator Bank</div>
+            <div class="knob-row">
+              <moog-knob
+                id="kRange"
+                label="RANGE"
+                variant="pointer"
+                size="sm"
+                detents
+                scale-labels="LO,32',16',8',4',2'"
+                value="2"
+              ></moog-knob>
+
+              <moog-knob
+                id="kTune"
+                label="OSCILLATOR TUNE"
+                variant="large"
+                size="lg"
+                min="-5"
+                max="5"
+                step="0.05"
+                value="0"
+                bipolar
+                scale-labels="-5,-3,-1,0,+1,+3,+5"
+                unit="st"
+              ></moog-knob>
+
+              <moog-knob
+                id="kWave"
+                label="WAVEFORM"
+                variant="skirtless"
+                size="sm"
+                detents
+                scale-labels="TRI,SAW,SQR,PLS"
+                value="1"
+              ></moog-knob>
+
+              <moog-knob
+                id="kDetune"
+                label="OSC 2 DETUNE"
+                variant="pointer"
+                size="sm"
+                min="-25"
+                max="25"
+                step="0.5"
+                value="7"
+                bipolar
+                scale-labels="-25,0,+25"
+                unit="ct"
+              ></moog-knob>
+            </div>
+            <div class="rocker-strip">
+              <div class="rocker-control">
+                <button id="swOsc2" class="rocker-btn blue" type="button" aria-pressed="true">
+                  <span class="rocker-paddle"><span>ON</span><span>OFF</span></span>
+                </button>
+                <span class="rocker-label">OSC 2 CHORUS</span>
+              </div>
+              <div class="rocker-control">
+                <button id="swGlide" class="rocker-btn orange" type="button" aria-pressed="false">
+                  <span class="rocker-paddle"><span>ON</span><span>OFF</span></span>
+                </button>
+                <span class="rocker-label">GLIDE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- FILTER & MODIFIERS -->
+          <div class="synth-module">
+            <div class="module-title">Filter / Modifiers</div>
+            <div class="knob-row">
+              <moog-knob
+                id="kCutoff"
+                label="CUTOFF FREQUENCY"
+                variant="large"
+                size="lg"
+                min="0"
+                max="10"
+                step="0.05"
+                value="5.6"
+                scale-labels="0,2,4,6,8,10"
+              ></moog-knob>
+
+              <moog-knob
+                id="kEmphasis"
+                label="EMPHASIS"
+                variant="large"
+                size="md"
+                min="0"
+                max="10"
+                step="0.05"
+                value="3.8"
+                scale-labels="0,2,4,6,8,10"
+              ></moog-knob>
+
+              <moog-knob
+                id="kLfoRate"
+                label="LFO RATE"
+                variant="skirtless"
+                size="sm"
+                min="0.2"
+                max="14"
+                step="0.1"
+                value="3.2"
+                unit="Hz"
+              ></moog-knob>
+
+              <moog-knob
+                id="kModDepth"
+                label="MOD DEPTH"
+                variant="pointer"
+                size="sm"
+                min="0"
+                max="10"
+                step="0.1"
+                value="2.4"
+              ></moog-knob>
+            </div>
+            <div class="rocker-strip">
+              <div class="rocker-control">
+                <button id="swFilterMod" class="rocker-btn orange" type="button" aria-pressed="true">
+                  <span class="rocker-paddle"><span>ON</span><span>OFF</span></span>
+                </button>
+                <span class="rocker-label">FILTER MOD</span>
+              </div>
+              <div class="rocker-control">
+                <button id="swDrive" class="rocker-btn orange" type="button" aria-pressed="false">
+                  <span class="rocker-paddle"><span>ON</span><span>OFF</span></span>
+                </button>
+                <span class="rocker-label">OVERLOAD DRIVE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- LOUDNESS CONTOUR & OUTPUT -->
+          <div class="synth-module">
+            <div class="module-title">Loudness &amp; Output</div>
+            <div class="knob-row">
+              <moog-knob
+                id="kAttack"
+                label="ATTACK"
+                variant="pointer"
+                size="sm"
+                min="5"
+                max="800"
+                step="5"
+                value="25"
+                unit="ms"
+              ></moog-knob>
+
+              <moog-knob
+                id="kDecay"
+                label="DECAY"
+                variant="pointer"
+                size="sm"
+                min="60"
+                max="2200"
+                step="10"
+                value="540"
+                unit="ms"
+              ></moog-knob>
+
+              <moog-knob
+                id="kVolume"
+                label="MAIN VOLUME"
+                variant="large"
+                size="md"
+                min="0"
+                max="10"
+                step="0.1"
+                value="6.5"
+                dot-color="#f472b6"
+                scale-labels="0,2,4,6,8,10"
+              ></moog-knob>
+            </div>
+            <div class="rocker-strip">
+              <div class="rocker-control">
+                <button id="swDrone" class="rocker-btn blue" type="button" aria-pressed="false">
+                  <span class="rocker-paddle"><span>ON</span><span>OFF</span></span>
+                </button>
+                <span class="rocker-label">CONTINUOUS DRONE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini Playable Keyboard -->
+        <div class="keyboard-section">
+          <div class="keyboard-meta">
+            <span>KEYBOARD — 클릭/터치 또는 키보드 <strong>A W S E D F T G Y H U J K</strong> 연주</span>
+            <span id="audioStatus">오디오 대기 중 (건반을 누르거나 POWER / DRONE을 켜세요)</span>
+          </div>
+          <div id="pianoKeys" class="piano-keys"></div>
+        </div>
+      </div>
+
+      <div class="wood-cheek"></div>
+    </section>
+
+    <!-- Reusable Component Playground -->
+    <section class="playground-card" aria-label="Component Playground">
+      <div class="playground-header">
+        <h2>Reusable &lt;moog-knob&gt; Playground &amp; Live API Inspector</h2>
+        <span>속성을 변경해 재사용 가능한 컴포넌트 동작과 HTML 마크업을 바로 테스트하세요</span>
+      </div>
+
+      <div class="playground-grid">
+        <div class="preview-stage">
+          <moog-knob
+            id="pgKnob"
+            label="CUSTOM KNOB"
+            variant="large"
+            cap="silver"
+            size="lg"
+            min="0"
+            max="10"
+            step="0.1"
+            value="5"
+            scale-labels="0,2,4,6,8,10"
+          ></moog-knob>
+        </div>
+
+        <div class="controls-panel">
+          <div class="ctrl-group">
+            <label for="pgVariant">Variant (노브 스타일)</label>
+            <select id="pgVariant">
+              <option value="large" selected>large (Model D Large)</option>
+              <option value="pointer">pointer (Pointer Beak)</option>
+              <option value="skirtless">skirtless (LFO Skirtless)</option>
+            </select>
+          </div>
+
+          <div class="ctrl-group">
+            <label for="pgCap">Cap Finish (메탈 캡)</label>
+            <select id="pgCap">
+              <option value="silver" selected>silver (Brushed Aluminum)</option>
+              <option value="brass">brass (Vintage Gold/Brass)</option>
+              <option value="black">black (Stealth Anodized)</option>
+            </select>
+          </div>
+
+          <div class="ctrl-group">
+            <label for="pgSize">Size (크기)</label>
+            <select id="pgSize">
+              <option value="sm">sm (72px)</option>
+              <option value="md">md (98px)</option>
+              <option value="lg" selected>lg (126px)</option>
+              <option value="xl">xl (162px)</option>
+            </select>
+          </div>
+
+          <div class="ctrl-group">
+            <label for="pgDragMode">Drag Mode (드래그 방식)</label>
+            <select id="pgDragMode">
+              <option value="vertical" selected>vertical (상하 드래그)</option>
+              <option value="circular">circular (원형 각도 추적)</option>
+            </select>
+          </div>
+
+          <div class="ctrl-group">
+            <label for="pgDotColor">Dot Color (포인트 도트)</label>
+            <select id="pgDotColor">
+              <option value="#f3f3ef" selected>Ivory White (#f3f3ef)</option>
+              <option value="#f472b6">Moog Pink (#f472b6)</option>
+              <option value="#f59e0b">Amber (#f59e0b)</option>
+              <option value="#38bdf8">Cyan (#38bdf8)</option>
+            </select>
+          </div>
+
+          <div class="ctrl-group">
+            <label for="pgLabel">Label (라벨 텍스트)</label>
+            <input id="pgLabel" type="text" value="CUSTOM KNOB" />
+          </div>
+
+          <div class="toggle-row">
+            <label class="chk-pill"><input id="pgBipolar" type="checkbox" /> bipolar (-5..+5)</label>
+            <label class="chk-pill"><input id="pgDetents" type="checkbox" /> detents (스위치 스냅)</label>
+            <label class="chk-pill"><input id="pgArc" type="checkbox" /> show-arc (LED 링)</label>
+            <label class="chk-pill"><input id="pgDisabled" type="checkbox" /> disabled</label>
+          </div>
+
+          <div class="code-and-log">
+            <div class="code-box">
+              <div class="box-head">
+                <span>Generated HTML Markup</span>
+                <button id="copySnippetBtn" class="copy-btn" type="button">Copy</button>
+              </div>
+              <pre id="snippetOut" style="margin:0;white-space:pre-wrap;"></pre>
+            </div>
+
+            <div class="log-box">
+              <div class="box-head">
+                <span>Live DOM Events (input / change)</span>
+                <button id="clearLogBtn" class="copy-btn" type="button">Clear</button>
+              </div>
+              <div id="eventLog" class="log-entries"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 1. Reusable Web Component Definition -->
+  <script>
+/**
+ * <moog-knob> — Reusable Minimoog Model D Style Rotary Knob Web Component
+ *
+ * Authentic recreation of the iconic Minimoog Model D large skirted knob
+ * (fluted 6-lobe glossy black body, flared skirt with dual aligned indicator dots,
+ * radial spun-aluminum inlay cap, and vintage silkscreened dial scale).
+ *
+ * Features:
+ *  - Pure zero-dependency Web Component (Shadow DOM + SVG + CSS)
+ *  - Variants: "large" (Model D Oscillator/Filter), "pointer", "skirtless"
+ *  - Cap finishes: "silver" (brushed aluminum), "brass", "black"
+ *  - Vertical or circular pointer drag, Shift for fine precision
+ *  - Double-click / Alt+click to reset to default value
+ *  - Mouse wheel support & full keyboard/ARIA slider accessibility
+ *  - Continuous mode OR stepped rotary detent mode (e.g. Octave Range switch)
+ *  - Dynamic specular flute highlights reacting to studio light angle as you turn
+ *
+ * @example
+ * <moog-knob
+ *   label="OSCILLATOR TUNE"
+ *   min="-5"
+ *   max="5"
+ *   value="0"
+ *   step="0.05"
+ *   bipolar
+ *   scale-labels="-5,-3,-1,0,+1,+3,+5"
+ *   unit="st"
+ * ></moog-knob>
+ */
+
+const LIGHT_ANGLE_RAD = (-135 * Math.PI) / 180; // Top-left studio key light
+
+const SIZE_MAP = {
+  sm: 72,
+  md: 98,
+  lg: 126,
+  xl: 162,
+};
+
+const VARIANT_CONFIG = {
+  large: {
+    rSkirt: 68,
+    rBodyBasePeak: 52.5,
+    rBodyBaseValley: 43.0,
+    rBodyTopPeak: 47.5,
+    rBodyTopValley: 39.5,
+    rCap: 33.8,
+    rDotTop: 41.2,
+    rDotSkirt: 59.5,
+    dotTopRadius: 3.1,
+    dotSkirtRadius: 3.4,
+    pointerExtend: 0,
+    hasSkirt: true,
+    skirtDot: true,
+    bodyDy: 5.5,
+  },
+  pointer: {
+    rSkirt: 64,
+    rBodyBasePeak: 46.5,
+    rBodyBaseValley: 38.5,
+    rBodyTopPeak: 41.5,
+    rBodyTopValley: 35.0,
+    rCap: 27.5,
+    rDotTop: 37.5,
+    rDotSkirt: 57.5,
+    dotTopRadius: 2.7,
+    dotSkirtRadius: 3.0,
+    pointerExtend: 6.5,
+    hasSkirt: true,
+    skirtDot: true,
+    bodyDy: 5.0,
+  },
+  skirtless: {
+    rSkirt: 50,
+    rBodyBasePeak: 49.0,
+    rBodyBaseValley: 40.5,
+    rBodyTopPeak: 44.5,
+    rBodyTopValley: 37.0,
+    rCap: 31.5,
+    rDotTop: 38.6,
+    rDotSkirt: 0,
+    dotTopRadius: 3.0,
+    dotSkirtRadius: 0,
+    pointerExtend: 0,
+    hasSkirt: false,
+    skirtDot: false,
+    bodyDy: 5.2,
+  },
+};
+
+function clamp(val, min, max) {
+  return Math.min(max, Math.max(min, val));
+}
+
+function parseNumAttr(el, name, fallback) {
+  const raw = el.getAttribute(name);
+  if (raw === null || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function roundToStep(val, step, min) {
+  if (!step || step <= 0) return val;
+  const steps = Math.round((val - min) / step);
+  const res = min + steps * step;
+  const decimals = (String(step).split('.')[1] || '').length;
+  return Number(res.toFixed(Math.min(decimals + 2, 8)));
+}
+
+function polar(cx, cy, r, rad) {
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+
+/**
+ * Generates an SVG path for the 6-lobed scalloped Moog knob profile.
+ * Uses the harmonic profile cos(6θ) + 0.25*cos(12θ) which creates
+ * narrow rounded ridges and wide smooth concave flutes.
+ */
+function buildScallopedPath(cx, cy, rPeak, rValley, pointerExtend = 0, samples = 180) {
+  const rMid = (rPeak + rValley) / 2;
+  const amp = (rPeak - rValley) / 2;
+  // Normalize harmonic (cos(6t)+0.25*cos(12t)) range [-0.75, +1.25] -> [-1, +1]
+  // f(t) = (cos(6t) + 0.25*cos(12t) - 0.25) -> range [-1, +1]
+  const pts = [];
+  for (let i = 0; i < samples; i++) {
+    const u = (i / samples) * Math.PI * 2; // 0 = straight UP (-PI/2)
+    const harmonic = Math.cos(6 * u) + 0.25 * Math.cos(12 * u) - 0.25;
+    let r = rMid + amp * harmonic;
+    if (pointerExtend > 0) {
+      // Smooth Gaussian-like extension on lobe 0 (around u = 0 / 2PI)
+      const dist = Math.min(u, Math.PI * 2 - u);
+      if (dist < 0.45) {
+        const w = Math.cos((dist / 0.45) * (Math.PI / 2));
+        r += pointerExtend * w * w;
+      }
+    }
+    const theta = u - Math.PI / 2;
+    const [x, y] = polar(cx, cy, r, theta);
+    pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+  pts.push('Z');
+  return pts.join(' ');
+}
+
+/**
+ * Generates an SVG arc path from startDeg to endDeg (0 deg = straight UP).
+ */
+function buildArcPath(cx, cy, r, startDeg, endDeg) {
+  if (Math.abs(endDeg - startDeg) < 0.01) return '';
+  const startRad = ((startDeg - 90) * Math.PI) / 180;
+  const endRad = ((endDeg - 90) * Math.PI) / 180;
+  const [x1, y1] = polar(cx, cy, r, startRad);
+  const [x2, y2] = polar(cx, cy, r, endRad);
+  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  const sweep = endDeg > startDeg ? 1 : 0;
+  return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} ${sweep} ${x2.toFixed(2)},${y2.toFixed(2)}`;
+}
+
+class MoogKnob extends HTMLElement {
+  static get observedAttributes() {
+    return [
+      'value',
+      'min',
+      'max',
+      'step',
+      'default-value',
+      'label',
+      'label-position',
+      'unit',
+      'size',
+      'variant',
+      'cap',
+      'dot-color',
+      'bipolar',
+      'ticks',
+      'minor-ticks',
+      'scale-labels',
+      'detents',
+      'min-angle',
+      'max-angle',
+      'drag-mode',
+      'sensitivity',
+      'wheel',
+      'show-value',
+      'show-arc',
+      'disabled',
+    ];
+  }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+
+    this._value = 0;
+    this._defaultValue = null;
+    this._dragging = false;
+    this._dragStartY = 0;
+    this._dragStartValue = 0;
+    this._formatFn = null;
+    this._uid = `mk-${Math.random().toString(36).slice(2, 9)}`;
+
+    this._onPointerDown = this._onPointerDown.bind(this);
+    this._onPointerMove = this._onPointerMove.bind(this);
+    this._onPointerUp = this._onPointerUp.bind(this);
+    this._onDblClick = this._onDblClick.bind(this);
+    this._onWheel = this._onWheel.bind(this);
+    this._onKeyDown = this._onKeyDown.bind(this);
+
+    this._rendered = false;
+  }
+
+  connectedCallback() {
+    if (this._defaultValue === null) {
+      if (this.hasAttribute('default-value')) {
+        this._defaultValue = Number(this.getAttribute('default-value'));
+      } else if (this.bipolar) {
+        this._defaultValue = (this.min + this.max) / 2;
+      } else if (this.hasAttribute('value')) {
+        this._defaultValue = Number(this.getAttribute('value'));
+      } else {
+        this._defaultValue = this.min;
+      }
+    }
+
+    if (this.hasAttribute('value')) {
+      this._value = this._sanitize(Number(this.getAttribute('value')));
+    } else {
+      this._value = this._sanitize(this._defaultValue);
+    }
+
+    this._render();
+    this._updateVisuals();
+  }
+
+  disconnectedCallback() {
+    this._cleanupDragListeners();
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (oldVal === newVal) return;
+
+    if (name === 'value') {
+      if (!this._rendered) return;
+      const next = this._sanitize(Number(newVal));
+      if (next !== this._value) {
+        this._value = next;
+        this._updateVisuals();
+      }
+      return;
+    }
+
+    if (name === 'default-value') {
+      this._defaultValue = newVal !== null ? Number(newVal) : null;
+    }
+
+    if (this._rendered) {
+      this._value = this._sanitize(this._value);
+      this._render();
+      this._updateVisuals();
+    }
+  }
+
+  // ---- Public Properties ----
+
+  get value() {
+    return this._value;
+  }
+  set value(v) {
+    const next = this._sanitize(Number(v));
+    if (next !== this._value) {
+      this._value = next;
+      this.setAttribute('value', String(next));
+      if (this._rendered) this._updateVisuals();
+    }
+  }
+
+  get min() {
+    const dets = this._getDetentLabels();
+    if (dets && !this.hasAttribute('min')) return 0;
+    return parseNumAttr(this, 'min', 0);
+  }
+  set min(v) {
+    this.setAttribute('min', String(v));
+  }
+
+  get max() {
+    const dets = this._getDetentLabels();
+    if (dets && !this.hasAttribute('max')) return Math.max(0, dets.length - 1);
+    return parseNumAttr(this, 'max', 10);
+  }
+  set max(v) {
+    this.setAttribute('max', String(v));
+  }
+
+  get step() {
+    if (this.hasAttribute('detents')) {
+      const detVal = this.getAttribute('detents');
+      const n = Number(detVal);
+      if (Number.isFinite(n) && n > 1) {
+        return (this.max - this.min) / (n - 1);
+      }
+      return 1;
+    }
+    const v = parseNumAttr(this, 'step', 0.01);
+    return v > 0 ? v : 0.01;
+  }
+  set step(v) {
+    this.setAttribute('step', String(v));
+  }
+
+  get defaultValue() {
+    if (this._defaultValue !== null && Number.isFinite(this._defaultValue)) {
+      return this._sanitize(this._defaultValue);
+    }
+    return this.bipolar ? this._sanitize((this.min + this.max) / 2) : this.min;
+  }
+  set defaultValue(v) {
+    this._defaultValue = Number(v);
+    this.setAttribute('default-value', String(v));
+  }
+
+  get bipolar() {
+    return this.hasAttribute('bipolar') && this.getAttribute('bipolar') !== 'false';
+  }
+  set bipolar(flag) {
+    if (flag) this.setAttribute('bipolar', '');
+    else this.removeAttribute('bipolar');
+  }
+
+  get disabled() {
+    return this.hasAttribute('disabled') && this.getAttribute('disabled') !== 'false';
+  }
+  set disabled(flag) {
+    if (flag) this.setAttribute('disabled', '');
+    else this.removeAttribute('disabled');
+  }
+
+  get variant() {
+    const v = this.getAttribute('variant');
+    return VARIANT_CONFIG[v] ? v : 'large';
+  }
+  set variant(v) {
+    this.setAttribute('variant', v);
+  }
+
+  get cap() {
+    const c = this.getAttribute('cap');
+    return c === 'brass' || c === 'black' ? c : 'silver';
+  }
+  set cap(c) {
+    this.setAttribute('cap', c);
+  }
+
+  get format() {
+    return this._formatFn;
+  }
+  set format(fn) {
+    this._formatFn = typeof fn === 'function' ? fn : null;
+    if (this._rendered) this._updateVisuals();
+  }
+
+  get normalized() {
+    const span = this.max - this.min;
+    if (span <= 0) return 0;
+    return clamp((this._value - this.min) / span, 0, 1);
+  }
+
+  get formattedValue() {
+    const dets = this._getDetentLabels();
+    if (dets && this.hasAttribute('detents')) {
+      const idx = Math.round(this.normalized * (dets.length - 1));
+      if (dets[idx] !== undefined) return dets[idx];
+    }
+    if (this._formatFn) {
+      return String(this._formatFn(this._value));
+    }
+    const unit = this.getAttribute('unit') || '';
+    const step = this.step;
+    const dec = step >= 1 ? 0 : Math.min(2, (String(step).split('.')[1] || '').length);
+    const numStr = this._value.toFixed(dec);
+    const signed = this.bipolar && this._value > 0 ? `+${numStr}` : numStr;
+    return unit ? `${signed} ${unit}` : signed;
+  }
+
+  reset() {
+    this._commitValue(this.defaultValue, true);
+  }
+
+  // ---- Internal Helpers ----
+
+  _getSizePx() {
+    const raw = this.getAttribute('size') || 'md';
+    if (SIZE_MAP[raw]) return SIZE_MAP[raw];
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 36 ? n : SIZE_MAP.md;
+  }
+
+  _getMinAngle() {
+    return parseNumAttr(this, 'min-angle', -150);
+  }
+
+  _getMaxAngle() {
+    return parseNumAttr(this, 'max-angle', 150);
+  }
+
+  _getScaleLabels() {
+    const raw = this.getAttribute('scale-labels');
+    if (!raw) return null;
+    try {
+      if (raw.trim().startsWith('[')) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch (_) {
+      // Fallback to comma-separated
+    }
+    return raw.split(',').map((s) => s.trim());
+  }
+
+  _getDetentLabels() {
+    if (!this.hasAttribute('detents')) return null;
+    const labels = this._getScaleLabels();
+    if (labels && labels.length > 1) return labels;
+    const n = Number(this.getAttribute('detents'));
+    if (Number.isFinite(n) && n > 1) {
+      return Array.from({ length: n }, (_, i) => String(i + 1));
+    }
+    return null;
+  }
+
+  _sanitize(v) {
+    if (!Number.isFinite(v)) return this.min;
+    const clamped = clamp(v, this.min, this.max);
+    return clamp(roundToStep(clamped, this.step, this.min), this.min, this.max);
+  }
+
+  _valueToAngle(val) {
+    const minA = this._getMinAngle();
+    const maxA = this._getMaxAngle();
+    const span = this.max - this.min;
+    if (span <= 0) return minA;
+    const norm = clamp((val - this.min) / span, 0, 1);
+    return minA + norm * (maxA - minA);
+  }
+
+  _setValueInternal(nextVal, emitInput = true) {
+    const sanitized = this._sanitize(nextVal);
+    if (sanitized === this._value) return false;
+    this._value = sanitized;
+    this.setAttribute('value', String(sanitized));
+    this._updateVisuals();
+    if (emitInput) {
+      this._emit('input');
+    }
+    return true;
+  }
+
+  _commitValue(nextVal, emitBoth = false) {
+    const changed = this._setValueInternal(nextVal, emitBoth);
+    if (changed || emitBoth) {
+      this._emit('change');
+    }
+  }
+
+  _emit(type) {
+    this.dispatchEvent(
+      new CustomEvent(type, {
+        bubbles: true,
+        composed: true,
+        detail: {
+          value: this._value,
+          normalized: this.normalized,
+          formatted: this.formattedValue,
+        },
+      })
+    );
+  }
+
+  // ---- Interaction Handlers ----
+
+  _onPointerDown(e) {
+    if (this.disabled || e.button > 0) return;
+    e.preventDefault();
+    this._dialEl.focus({ preventScroll: true });
+
+    this._dragging = true;
+    this._dragStartY = e.clientY;
+    this._dragStartValue = this._value;
+    this._dragMoved = false;
+    this._dialEl.classList.add('is-active');
+
+    try {
+      this._dialEl.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    if (e.altKey) {
+      this.reset();
+      return;
+    }
+
+    if (this.getAttribute('drag-mode') === 'circular') {
+      this._applyCircularPointer(e);
+    }
+
+    window.addEventListener('pointermove', this._onPointerMove);
+    window.addEventListener('pointerup', this._onPointerUp);
+    window.addEventListener('pointercancel', this._onPointerUp);
+  }
+
+  _onPointerMove(e) {
+    if (!this._dragging) return;
+    this._dragMoved = true;
+
+    if (this.getAttribute('drag-mode') === 'circular') {
+      this._applyCircularPointer(e);
+      return;
+    }
+
+    const baseSens = parseNumAttr(this, 'sensitivity', 170);
+    const sens = e.shiftKey ? baseSens * 6 : baseSens;
+    const dy = this._dragStartY - e.clientY;
+    const span = this.max - this.min;
+    const delta = (dy / sens) * span;
+    this._setValueInternal(this._dragStartValue + delta, true);
+  }
+
+  _applyCircularPointer(e) {
+    const rect = this._dialEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    // Angle where 0 deg = straight UP, clockwise positive
+    let deg = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI + 90;
+    if (deg > 180) deg -= 360;
+    const minA = this._getMinAngle();
+    const maxA = this._getMaxAngle();
+    const clampedDeg = clamp(deg, minA, maxA);
+    const norm = (clampedDeg - minA) / (maxA - minA);
+    this._setValueInternal(this.min + norm * (this.max - this.min), true);
+  }
+
+  _onPointerUp(e) {
+    if (!this._dragging) return;
+    this._dragging = false;
+    this._dialEl.classList.remove('is-active');
+    try {
+      this._dialEl.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    this._cleanupDragListeners();
+    if (this._dragMoved && this._value !== this._dragStartValue) {
+      this._emit('change');
+    }
+  }
+
+  _cleanupDragListeners() {
+    window.removeEventListener('pointermove', this._onPointerMove);
+    window.removeEventListener('pointerup', this._onPointerUp);
+    window.removeEventListener('pointercancel', this._onPointerUp);
+  }
+
+  _onDblClick(e) {
+    if (this.disabled) return;
+    e.preventDefault();
+    this.reset();
+  }
+
+  _onWheel(e) {
+    if (this.disabled || this.getAttribute('wheel') === 'false') return;
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1 : -1;
+    const span = this.max - this.min;
+    const baseIncrement = this.hasAttribute('detents')
+      ? this.step
+      : Math.max(this.step, span / (e.shiftKey ? 200 : 45));
+    const prev = this._value;
+    this._setValueInternal(this._value + dir * baseIncrement, true);
+    if (this._value !== prev) {
+      clearTimeout(this._wheelCommitTimer);
+      this._wheelCommitTimer = setTimeout(() => this._emit('change'), 160);
+    }
+  }
+
+  _onKeyDown(e) {
+    if (this.disabled) return;
+    const span = this.max - this.min;
+    const isDetent = this.hasAttribute('detents');
+    const fineStep = isDetent ? this.step : Math.max(this.step, span / 100);
+    const normalStep = isDetent ? this.step : Math.max(this.step, span / 25);
+    const coarseStep = isDetent ? this.step : Math.max(this.step, span / 8);
+    const delta = e.shiftKey ? fineStep : normalStep;
+
+    let handled = true;
+    let next = this._value;
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowRight':
+        next = this._value + delta;
+        break;
+      case 'ArrowDown':
+      case 'ArrowLeft':
+        next = this._value - delta;
+        break;
+      case 'PageUp':
+        next = this._value + coarseStep;
+        break;
+      case 'PageDown':
+        next = this._value - coarseStep;
+        break;
+      case 'Home':
+        next = this.min;
+        break;
+      case 'End':
+        next = this.max;
+        break;
+      default:
+        handled = false;
+    }
+
+    if (handled) {
+      e.preventDefault();
+      this._commitValue(next, true);
+    }
+  }
+
+  // ---- Rendering ----
+
+  _render() {
+    const cfg = VARIANT_CONFIG[this.variant];
+    const sizePx = this._getSizePx();
+    const dotColor = this.getAttribute('dot-color') || '#f3f3ef';
+    const label = this.getAttribute('label') || '';
+    const labelPos = this.getAttribute('label-position') === 'bottom' ? 'bottom' : 'top';
+    const showValueMode = this.getAttribute('show-value') || 'always';
+    const showArc = this.hasAttribute('show-arc') && this.getAttribute('show-arc') !== 'false';
+    const capType = this.cap;
+
+    const minA = this._getMinAngle();
+    const maxA = this._getMaxAngle();
+
+    // SVG coordinate system: 220x220 centered at (110, 110)
+    // Leaves room outside rSkirt=68 for ticks (r=74..85) and scale labels (r=96)
+    const cx = 110;
+    const cy = 110;
+    const bodyCy = cy - 2; // slight perspective lift
+    const baseCy = bodyCy + cfg.bodyDy;
+
+    const baseScallop = buildScallopedPath(
+      cx,
+      baseCy,
+      cfg.rBodyBasePeak,
+      cfg.rBodyBaseValley,
+      cfg.pointerExtend
+    );
+    const topScallop = buildScallopedPath(
+      cx,
+      bodyCy,
+      cfg.rBodyTopPeak,
+      cfg.rBodyTopValley,
+      cfg.pointerExtend
+    );
+
+    // Build dial ticks & labels
+    const labels = this._getScaleLabels();
+    const tickCountAttr = this.getAttribute('ticks');
+    const majorCount = labels
+      ? labels.length
+      : tickCountAttr !== null
+        ? Math.max(0, parseNumAttr(this, 'ticks', 11))
+        : 11;
+    const minorPerGap = this.hasAttribute('detents')
+      ? 0
+      : Math.max(0, parseNumAttr(this, 'minor-ticks', 1));
+
+    let ticksSvg = '';
+    if (majorCount > 1) {
+      const rTickIn = cfg.hasSkirt ? 74 : 58;
+      const rTickOutMajor = cfg.hasSkirt ? 83 : 67;
+      const rTickOutMinor = cfg.hasSkirt ? 78.5 : 62.5;
+      const rLabel = cfg.hasSkirt ? 96 : 80;
+
+      for (let i = 0; i < majorCount; i++) {
+        const t = i / (majorCount - 1);
+        const deg = minA + t * (maxA - minA);
+        const rad = ((deg - 90) * Math.PI) / 180;
+        const [x1, y1] = polar(cx, cy, rTickIn, rad);
+        const [x2, y2] = polar(cx, cy, rTickOutMajor, rad);
+        const isCenterBipolar = this.bipolar && Math.abs(deg) < 1;
+        ticksSvg += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="tick-major ${isCenterBipolar ? 'tick-center' : ''}" />`;
+
+        if (labels && labels[i] !== undefined) {
+          const [lx, ly] = polar(cx, cy, rLabel, rad);
+          ticksSvg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" class="scale-label">${this._escapeHtml(labels[i])}</text>`;
+        }
+
+        if (minorPerGap > 0 && i < majorCount - 1) {
+          for (let m = 1; m <= minorPerGap; m++) {
+            const mt = (i + m / (minorPerGap + 1)) / (majorCount - 1);
+            const mdeg = minA + mt * (maxA - minA);
+            const mrad = ((mdeg - 90) * Math.PI) / 180;
+            const [mx1, my1] = polar(cx, cy, rTickIn, mrad);
+            const [mx2, my2] = polar(cx, cy, rTickOutMinor, mrad);
+            ticksSvg += `<line x1="${mx1.toFixed(1)}" y1="${my1.toFixed(1)}" x2="${mx2.toFixed(1)}" y2="${my2.toFixed(1)}" class="tick-minor" />`;
+          }
+        }
+      }
+    }
+
+    // 6 dynamic perspective ridge highlights in panel space (placed behind top face)
+    let ridgeHighlightsSvg = '';
+    for (let i = 0; i < 6; i++) {
+      ridgeHighlightsSvg += `<line class="ridge-glint" data-lobe="${i}" x1="0" y1="0" x2="0" y2="0" />`;
+    }
+
+    // Cap disc geometry percentages inside the 220x220 viewBox
+    const capDiamPct = ((cfg.rCap * 2) / 220) * 100;
+    const capLeftPct = ((cx - cfg.rCap) / 220) * 100;
+    const capTopPct = ((bodyCy - cfg.rCap) / 220) * 100;
+
+    // SVG size needs extra margin for dial labels (220 viewBox vs knob diameter 136 -> ~1.55x)
+    const widgetWidth = Math.round(sizePx * 1.48);
+
+    const uid = this._uid;
+    const labelHtml = label ? `<div class="knob-label">${this._escapeHtml(label)}</div>` : '';
+    const valueHtml =
+      showValueMode !== 'never'
+        ? `<div class="knob-value ${showValueMode === 'hover' ? 'only-hover' : ''}" part="value"></div>`
+        : '';
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          user-select: none;
+          -webkit-user-select: none;
+          vertical-align: top;
+          --moog-label-color: #e8e6df;
+          --moog-tick-color: rgba(236, 234, 226, 0.85);
+          --moog-tick-minor-color: rgba(236, 234, 226, 0.42);
+          --moog-accent-color: #f59e0b;
+          --moog-value-bg: rgba(10, 10, 12, 0.72);
+          --moog-value-color: #f3efe4;
+          --moog-font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+          --moog-mono-font: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+          font-family: var(--moog-font-family);
+        }
+
+        :host([disabled]) {
+          opacity: 0.48;
+          pointer-events: none;
+        }
+
+        .wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+        }
+
+        .knob-label {
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.11em;
+          text-transform: uppercase;
+          color: var(--moog-label-color);
+          text-align: center;
+          line-height: 1.25;
+          max-width: ${widgetWidth + 16}px;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        .dial-stage {
+          position: relative;
+          width: ${widgetWidth}px;
+          height: ${widgetWidth}px;
+          cursor: ns-resize;
+          touch-action: none;
+          outline: none;
+          border-radius: 50%;
+          transition: filter 120ms ease;
+        }
+
+        :host([drag-mode="circular"]) .dial-stage {
+          cursor: grab;
+        }
+        :host([drag-mode="circular"]) .dial-stage.is-active {
+          cursor: grabbing;
+        }
+
+        .dial-stage:focus-visible {
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 0 14px rgba(245, 158, 11, 0.35);
+        }
+
+        svg.knob-svg {
+          width: 100%;
+          height: 100%;
+          display: block;
+          overflow: visible;
+        }
+
+        .tick-major {
+          stroke: var(--moog-tick-color);
+          stroke-width: 1.85;
+          stroke-linecap: round;
+        }
+
+        .tick-major.tick-center {
+          stroke: var(--moog-accent-color);
+          stroke-width: 2.3;
+        }
+
+        .tick-minor {
+          stroke: var(--moog-tick-minor-color);
+          stroke-width: 1.2;
+          stroke-linecap: round;
+        }
+
+        .scale-label {
+          fill: var(--moog-tick-color);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-anchor: middle;
+          dominant-baseline: central;
+          font-family: var(--moog-font-family);
+        }
+
+        .arc-track {
+          fill: none;
+          stroke: rgba(255, 255, 255, 0.1);
+          stroke-width: 3;
+          stroke-linecap: round;
+        }
+
+        .arc-fill {
+          fill: none;
+          stroke: var(--moog-accent-color);
+          stroke-width: 3;
+          stroke-linecap: round;
+          filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.55));
+        }
+
+        .ridge-glint {
+          stroke: rgba(255, 255, 255, 0.72);
+          stroke-width: 2.6;
+          stroke-linecap: round;
+          pointer-events: none;
+        }
+
+        /* Radial Brushed Aluminum / Brass / Black Top Cap */
+        .cap-disc {
+          position: absolute;
+          left: ${capLeftPct.toFixed(3)}%;
+          top: ${capTopPct.toFixed(3)}%;
+          width: ${capDiamPct.toFixed(3)}%;
+          height: ${capDiamPct.toFixed(3)}%;
+          border-radius: 50%;
+          pointer-events: none;
+          box-sizing: border-box;
+          box-shadow:
+            inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+            inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.55),
+            0 0 0 1px rgba(0, 0, 0, 0.85);
+        }
+
+        .cap-disc.cap-silver {
+          background:
+            repeating-radial-gradient(
+              circle at 50% 50%,
+              rgba(255, 255, 255, 0.045) 0px,
+              rgba(0, 0, 0, 0.04) 1px,
+              transparent 2px
+            ),
+            conic-gradient(
+              from -38deg,
+              #cfd4d9 0deg,
+              #f7f9fb 26deg,
+              #949ba3 66deg,
+              #777e86 98deg,
+              #c7cdd3 145deg,
+              #f4f7fa 188deg,
+              #8f969e 232deg,
+              #727980 266deg,
+              #c3c9cf 314deg,
+              #cfd4d9 360deg
+            );
+        }
+
+        .cap-disc.cap-brass {
+          background:
+            repeating-radial-gradient(
+              circle at 50% 50%,
+              rgba(255, 255, 255, 0.04) 0px,
+              rgba(0, 0, 0, 0.04) 1px,
+              transparent 2px
+            ),
+            conic-gradient(
+              from -38deg,
+              #c9a65b 0deg,
+              #f6e3a8 26deg,
+              #8c6f32 66deg,
+              #6e5420 98deg,
+              #bfa054 145deg,
+              #f2dc9b 188deg,
+              #886a2f 232deg,
+              #664e1c 266deg,
+              #ba994e 314deg,
+              #c9a65b 360deg
+            );
+        }
+
+        .cap-disc.cap-black {
+          background:
+            repeating-radial-gradient(
+              circle at 50% 50%,
+              rgba(255, 255, 255, 0.03) 0px,
+              rgba(0, 0, 0, 0.06) 1px,
+              transparent 2px
+            ),
+            conic-gradient(
+              from -38deg,
+              #2a2c30 0deg,
+              #464950 26deg,
+              #1b1c20 66deg,
+              #141518 98deg,
+              #27292e 145deg,
+              #41444a 188deg,
+              #191a1e 232deg,
+              #121316 266deg,
+              #25272b 314deg,
+              #2a2c30 360deg
+            );
+          box-shadow:
+            inset 0 1px 1.5px rgba(255, 255, 255, 0.16),
+            inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.8),
+            0 0 0 1px rgba(0, 0, 0, 0.95);
+        }
+
+        /* Subtle lathe center dimple */
+        .cap-disc::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 36% 32%,
+            rgba(255, 255, 255, 0.22) 0%,
+            rgba(255, 255, 255, 0) 58%,
+            rgba(0, 0, 0, 0.16) 100%
+          );
+        }
+
+        .knob-value {
+          font-family: var(--moog-mono-font);
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--moog-value-color);
+          background: var(--moog-value-bg);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 4px;
+          padding: 1.5px 7px;
+          min-width: 48px;
+          text-align: center;
+          letter-spacing: 0.03em;
+          transition: opacity 150ms ease, border-color 150ms ease;
+        }
+
+        .dial-stage.is-active ~ .knob-value,
+        .dial-stage:focus-visible ~ .knob-value {
+          border-color: rgba(245, 158, 11, 0.6);
+        }
+
+        .knob-value.only-hover {
+          opacity: 0;
+        }
+        .wrap:hover .knob-value.only-hover,
+        .dial-stage.is-active ~ .knob-value.only-hover,
+        .dial-stage:focus-visible ~ .knob-value.only-hover {
+          opacity: 1;
+        }
+      </style>
+
+      <div class="wrap">
+        ${labelPos === 'top' ? labelHtml : ''}
+        <div
+          class="dial-stage"
+          role="slider"
+          tabindex="${this.disabled ? '-1' : '0'}"
+          aria-label="${this._escapeHtml(label || 'Rotary Knob')}"
+          aria-valuemin="${this.min}"
+          aria-valuemax="${this.max}"
+          aria-valuenow="${this._value}"
+        >
+          <svg class="knob-svg" viewBox="0 0 220 220" aria-hidden="true">
+            <defs>
+              <!-- Panel Contact Shadow -->
+              <radialGradient id="${uid}-shadow" cx="50%" cy="50%" r="50%">
+                <stop offset="62%" stop-color="#000000" stop-opacity="0.82" />
+                <stop offset="86%" stop-color="#000000" stop-opacity="0.38" />
+                <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+              </radialGradient>
+
+              <!-- Glossy Flared Skirt Surface (anchored to studio lighting) -->
+              <radialGradient id="${uid}-skirt-grad" cx="38%" cy="34%" r="65%">
+                <stop offset="0%" stop-color="#3c3f45" />
+                <stop offset="45%" stop-color="#191a1d" />
+                <stop offset="82%" stop-color="#0a0a0c" />
+                <stop offset="100%" stop-color="#1e2024" />
+              </radialGradient>
+
+              <!-- Skirt Rim Specular Sheen -->
+              <linearGradient id="${uid}-skirt-rim" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.42)" />
+                <stop offset="35%" stop-color="rgba(255,255,255,0.08)" />
+                <stop offset="70%" stop-color="rgba(0,0,0,0.5)" />
+                <stop offset="100%" stop-color="rgba(255,255,255,0.16)" />
+              </linearGradient>
+
+              <!-- Scalloped Body Sidewall Gradient -->
+              <linearGradient id="${uid}-sidewall" x1="18%" y1="12%" x2="84%" y2="88%">
+                <stop offset="0%" stop-color="#2c2f35" />
+                <stop offset="42%" stop-color="#121316" />
+                <stop offset="100%" stop-color="#060608" />
+              </linearGradient>
+
+              <!-- Scalloped Top Face Glossy Bakelite -->
+              <linearGradient id="${uid}-topface" x1="20%" y1="12%" x2="82%" y2="88%">
+                <stop offset="0%" stop-color="#35383f" />
+                <stop offset="40%" stop-color="#18191c" />
+                <stop offset="100%" stop-color="#09090b" />
+              </linearGradient>
+
+              <!-- Top Edge Highlight -->
+              <linearGradient id="${uid}-topedge" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.48)" />
+                <stop offset="42%" stop-color="rgba(255,255,255,0.10)" />
+                <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
+              </linearGradient>
+
+              <!-- Body-on-Skirt Ambient Occlusion -->
+              <filter id="${uid}-ao" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="3.6" />
+              </filter>
+            </defs>
+
+            <!-- Scale Ticks & Labels -->
+            <g class="dial-scale">${ticksSvg}</g>
+
+            <!-- Optional Hybrid LED Ring Arc -->
+            ${
+              showArc
+                ? `<path class="arc-track" d="${buildArcPath(cx, cy, cfg.rSkirt + 4, minA, maxA)}" />
+                   <path class="arc-fill" d="" />`
+                : ''
+            }
+
+            <!-- Cast Shadow onto Control Panel (offset down-right from top-left light) -->
+            <circle cx="${cx + 4}" cy="${cy + 7}" r="${cfg.rSkirt + 10}" fill="url(#${uid}-shadow)" />
+
+            <!-- Flared Black Skirt Base -->
+            ${
+              cfg.hasSkirt
+                ? `
+              <g class="skirt-base">
+                <circle cx="${cx}" cy="${cy + 3.5}" r="${cfg.rSkirt}" fill="#050507" />
+                <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt}" fill="url(#${uid}-skirt-grad)" stroke="url(#${uid}-skirt-rim)" stroke-width="1.2" />
+                <circle cx="${cx}" cy="${cy + 1.5}" r="${cfg.rSkirt - 2.2}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.8" />
+              </g>
+            `
+                : ''
+            }
+
+            <!-- Rotating Skirt Dot (rotates around panel center) -->
+            ${
+              cfg.skirtDot
+                ? `
+              <g class="rot-skirt">
+                <circle
+                  cx="${cx}"
+                  cy="${cy + 1.5 - cfg.rDotSkirt}"
+                  r="${cfg.dotSkirtRadius}"
+                  fill="${this._escapeHtml(dotColor)}"
+                  stroke="rgba(0,0,0,0.65)"
+                  stroke-width="0.6"
+                />
+              </g>
+            `
+                : ''
+            }
+
+            <!-- 3D Extruded Fluted Body Base & Ambient Occlusion (rotates around base center) -->
+            <g class="rot-body-base">
+              <path d="${baseScallop}" fill="rgba(0,0,0,0.75)" filter="url(#${uid}-ao)" transform="translate(2, 3)" />
+              <path d="${baseScallop}" fill="url(#${uid}-sidewall)" stroke="#050507" stroke-width="1.1" />
+            </g>
+
+            <!-- True 2.5D Perspective Sidewall Ridge Glints (occluded by top face when rotated behind) -->
+            <g class="ridge-glints">${ridgeHighlightsSvg}</g>
+
+            <!-- Fluted Body Top Face & Upper White Indicator Dot (rotates around top center) -->
+            <g class="rot-body-top">
+              <path d="${topScallop}" fill="url(#${uid}-topface)" stroke="url(#${uid}-topedge)" stroke-width="1.25" />
+              <!-- Recessed Chamfer around Metal Cap -->
+              <circle cx="${cx}" cy="${bodyCy}" r="${cfg.rCap + 1.6}" fill="#08080a" stroke="rgba(255,255,255,0.12)" stroke-width="0.7" />
+              <!-- Iconic Upper Ridge White Dot -->
+              <circle
+                cx="${cx}"
+                cy="${bodyCy - cfg.rDotTop - (cfg.pointerExtend > 0 ? 3.5 : 0)}"
+                r="${cfg.dotTopRadius}"
+                fill="${this._escapeHtml(dotColor)}"
+                stroke="rgba(0,0,0,0.65)"
+                stroke-width="0.6"
+              />
+            </g>
+          </svg>
+
+          <!-- Spun Radial Brushed Metal Inlay Cap -->
+          <div class="cap-disc cap-${capType}" aria-hidden="true"></div>
+        </div>
+        ${labelPos === 'bottom' ? labelHtml : ''}
+        ${valueHtml}
+      </div>
+    `;
+
+    this._dialEl = this.shadowRoot.querySelector('.dial-stage');
+    this._valueEl = this.shadowRoot.querySelector('.knob-value');
+    this._rotSkirtEl = this.shadowRoot.querySelector('.rot-skirt');
+    this._rotBodyBaseEl = this.shadowRoot.querySelector('.rot-body-base');
+    this._rotBodyTopEl = this.shadowRoot.querySelector('.rot-body-top');
+    this._ridgeGlints = Array.from(this.shadowRoot.querySelectorAll('.ridge-glint'));
+    this._arcFillEl = this.shadowRoot.querySelector('.arc-fill');
+
+    this._dialEl.addEventListener('pointerdown', this._onPointerDown);
+    this._dialEl.addEventListener('dblclick', this._onDblClick);
+    this._dialEl.addEventListener('wheel', this._onWheel, { passive: false });
+    this._dialEl.addEventListener('keydown', this._onKeyDown);
+
+    this._rendered = true;
+  }
+
+  _updateVisuals() {
+    if (!this._rendered) return;
+    const cfg = VARIANT_CONFIG[this.variant];
+    const deg = this._valueToAngle(this._value);
+    const cx = 110;
+    const cy = 110;
+    const bodyCy = cy - 2;
+    const baseCy = bodyCy + cfg.bodyDy;
+
+    if (this._rotSkirtEl) {
+      this._rotSkirtEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${cy + 1.5})`);
+    }
+    if (this._rotBodyBaseEl) {
+      this._rotBodyBaseEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${baseCy})`);
+    }
+    if (this._rotBodyTopEl) {
+      this._rotBodyTopEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${bodyCy})`);
+    }
+
+    // Update dynamic 2.5D perspective specular ridge highlights relative to stationary top-left light
+    const knobRad = (deg * Math.PI) / 180;
+    for (let i = 0; i < this._ridgeGlints.length; i++) {
+      const worldTheta = knobRad + (i * Math.PI) / 3 - Math.PI / 2;
+      const rPeakTop = cfg.rBodyTopPeak + (i === 0 ? cfg.pointerExtend : 0);
+      const rPeakBase = cfg.rBodyBasePeak + (i === 0 ? cfg.pointerExtend : 0);
+      const [tx, ty] = polar(cx, bodyCy, rPeakTop - 1.0, worldTheta);
+      const [bx, by] = polar(cx, baseCy, rPeakBase - 1.0, worldTheta);
+      const line = this._ridgeGlints[i];
+      line.setAttribute('x1', tx.toFixed(2));
+      line.setAttribute('y1', ty.toFixed(2));
+      line.setAttribute('x2', bx.toFixed(2));
+      line.setAttribute('y2', by.toFixed(2));
+      const cosLight = Math.cos(worldTheta - LIGHT_ANGLE_RAD);
+      const spec = Math.pow(Math.max(0, cosLight), 2.0) * 0.52 + 0.05;
+      line.setAttribute('opacity', spec.toFixed(3));
+    }
+
+    if (this._arcFillEl) {
+      const minA = this._getMinAngle();
+      const maxA = this._getMaxAngle();
+      const startA = this.bipolar ? (minA + maxA) / 2 : minA;
+      this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, startA, deg));
+    }
+
+    const formatted = this.formattedValue;
+    if (this._valueEl) {
+      this._valueEl.textContent = formatted;
+    }
+
+    this._dialEl.setAttribute('aria-valuemin', String(this.min));
+    this._dialEl.setAttribute('aria-valuemax', String(this.max));
+    this._dialEl.setAttribute('aria-valuenow', String(this._value));
+    this._dialEl.setAttribute('aria-valuetext', formatted);
+  }
+
+  _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+}
+
+function registerMoogKnob(tagName = 'moog-knob') {
+  if (typeof customElements !== 'undefined' && !customElements.get(tagName)) {
+    customElements.define(tagName, MoogKnob);
+  }
+}
+
+registerMoogKnob('moog-knob');
+
+  </script>
+
+  <!-- 2. Real-time Web Audio Minimoog Engine + Playground Logic -->
+  <script>
+    (() => {
+      // ---- Custom Logarithmic Formatter for Filter Cutoff ----
+      const kCutoff = document.getElementById('kCutoff');
+      const normToCutoffHz = (v) => 24 * Math.pow(500, v / 10); // 24 Hz .. 12,000 Hz
+      kCutoff.format = (v) => {
+        const hz = normToCutoffHz(v);
+        return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`;
+      };
+
+      // ---- Web Audio Synthesizer ----
+      let ctx = null;
+      let osc1 = null;
+      let osc2 = null;
+      let lfo = null;
+      let lfoGain = null;
+      let filter = null;
+      let shaper = null;
+      let ampGain = null;
+      let masterGain = null;
+      let analyser = null;
+
+      let audioRunning = false;
+      let droneOn = false;
+      let osc2Enabled = true;
+      let filterModEnabled = true;
+      let driveEnabled = false;
+      let glideEnabled = false;
+      let currentMidi = 48; // C3
+
+      const rangeSemitones = [-24, -12, 0, 12, 24, 36]; // LO, 32', 16', 8', 4', 2'
+      const waveforms = ['triangle', 'sawtooth', 'square', 'square'];
+
+      const kRange = document.getElementById('kRange');
+      const kTune = document.getElementById('kTune');
+      const kWave = document.getElementById('kWave');
+      const kDetune = document.getElementById('kDetune');
+      const kEmphasis = document.getElementById('kEmphasis');
+      const kLfoRate = document.getElementById('kLfoRate');
+      const kModDepth = document.getElementById('kModDepth');
+      const kAttack = document.getElementById('kAttack');
+      const kDecay = document.getElementById('kDecay');
+      const kVolume = document.getElementById('kVolume');
+
+      const powerBtn = document.getElementById('powerBtn');
+      const powerLabel = document.getElementById('powerLabel');
+      const audioStatus = document.getElementById('audioStatus');
+      const overloadBulb = document.getElementById('overloadBulb');
+      const swOsc2 = document.getElementById('swOsc2');
+      const swGlide = document.getElementById('swGlide');
+      const swFilterMod = document.getElementById('swFilterMod');
+      const swDrive = document.getElementById('swDrive');
+      const swDrone = document.getElementById('swDrone');
+
+      function makeDriveCurve(amount) {
+        const n = 512;
+        const curve = new Float32Array(n);
+        const k = amount;
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2) / n - 1;
+          curve[i] = ((3 + k) * x * 20 * (Math.PI / 180)) / (Math.PI + k * Math.abs(x));
+        }
+        return curve;
+      }
+
+      function ensureAudio() {
+        if (ctx) {
+          if (ctx.state === 'suspended') ctx.resume();
+          return;
+        }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        ctx = new AudioCtx();
+
+        osc1 = ctx.createOscillator();
+        osc2 = ctx.createOscillator();
+        const osc2Gain = ctx.createGain();
+        osc2Gain.gain.value = 0.65;
+        osc2._gainNode = osc2Gain;
+
+        filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+
+        shaper = ctx.createWaveShaper();
+        shaper.oversample = '2x';
+        shaper.curve = makeDriveCurve(4);
+
+        lfo = ctx.createOscillator();
+        lfo.type = 'triangle';
+        lfoGain = ctx.createGain();
+
+        ampGain = ctx.createGain();
+        ampGain.gain.value = 0;
+
+        masterGain = ctx.createGain();
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+
+        osc1.connect(filter);
+        osc2.connect(osc2Gain);
+        osc2Gain.connect(filter);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+
+        filter.connect(shaper);
+        shaper.connect(ampGain);
+        ampGain.connect(masterGain);
+        masterGain.connect(analyser);
+        analyser.connect(ctx.destination);
+
+        osc1.start();
+        osc2.start();
+        lfo.start();
+        audioRunning = true;
+        updateSynthParams();
+        updatePowerUI();
+      }
+
+      function midiToHz(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function updateSynthParams() {
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const rangeOffset = rangeSemitones[Math.round(kRange.value)] ?? 0;
+        const tuneSemis = kTune.value;
+        const baseHz = midiToHz(currentMidi + rangeOffset + tuneSemis);
+        const glideTime = glideEnabled ? 0.11 : 0.015;
+
+        osc1.frequency.setTargetAtTime(baseHz, now, glideTime);
+        osc2.frequency.setTargetAtTime(baseHz, now, glideTime);
+        osc2.detune.setTargetAtTime(kDetune.value, now, 0.02);
+
+        const waveIdx = Math.round(kWave.value);
+        const wType = waveforms[waveIdx] || 'sawtooth';
+        osc1.type = wType;
+        osc2.type = waveIdx === 3 ? 'sawtooth' : wType;
+        osc2._gainNode.gain.setTargetAtTime(osc2Enabled ? 0.68 : 0.0, now, 0.02);
+
+        const cutoffHz = normToCutoffHz(kCutoff.value);
+        filter.frequency.setTargetAtTime(cutoffHz, now, 0.02);
+
+        const emph = kEmphasis.value;
+        const qVal = 0.7 + Math.pow(emph / 10, 1.7) * 18;
+        filter.Q.setTargetAtTime(qVal, now, 0.02);
+
+        const driveAmt = driveEnabled ? 42 + emph * 4 : 4 + emph * 1.4;
+        shaper.curve = makeDriveCurve(driveAmt);
+
+        lfo.frequency.setTargetAtTime(kLfoRate.value, now, 0.02);
+        const modHz = filterModEnabled ? kModDepth.value * cutoffHz * 0.09 : 0;
+        lfoGain.gain.setTargetAtTime(modHz, now, 0.02);
+
+        const vol = (kVolume.value / 10) * 0.34;
+        masterGain.gain.setTargetAtTime(vol, now, 0.02);
+
+        if (droneOn) {
+          ampGain.gain.setTargetAtTime(0.8, now, 0.04);
+        }
+
+        const overloadHot = driveEnabled || emph > 6.8;
+        overloadBulb.classList.toggle('lit', audioRunning && overloadHot && (droneOn || ampGain.gain.value > 0.05));
+      }
+
+      function triggerNote(midi) {
+        currentMidi = midi;
+        ensureAudio();
+        updateSynthParams();
+        if (droneOn) return;
+
+        const now = ctx.currentTime;
+        const att = kAttack.value / 1000;
+        const dec = kDecay.value / 1000;
+        ampGain.gain.cancelScheduledValues(now);
+        ampGain.gain.setValueAtTime(Math.max(ampGain.gain.value, 0.001), now);
+        ampGain.gain.linearRampToValueAtTime(0.9, now + att);
+        ampGain.gain.setTargetAtTime(0.28, now + att, dec * 0.45);
+        audioStatus.textContent = `연주 중: MIDI ${midi} (${Math.round(midiToHz(midi + (rangeSemitones[Math.round(kRange.value)] ?? 0) + kTune.value))} Hz)`;
+      }
+
+      function releaseNote() {
+        if (!ctx || droneOn) return;
+        const now = ctx.currentTime;
+        const rel = Math.max(0.06, (kDecay.value / 1000) * 0.45);
+        ampGain.gain.cancelScheduledValues(now);
+        ampGain.gain.setTargetAtTime(0, now, rel * 0.4);
+      }
+
+      function updatePowerUI() {
+        const active = audioRunning && droneOn;
+        powerBtn.classList.toggle('is-on', active);
+        powerBtn.setAttribute('aria-pressed', String(active));
+        powerLabel.textContent = active ? 'DRONE ACTIVE' : 'POWER / DRONE OFF';
+        swDrone.setAttribute('aria-pressed', String(droneOn));
+        if (active) {
+          audioStatus.textContent = '드론 활성화 — 노브를 돌려 실시간 음색 변화를 확인하세요';
+        } else if (audioRunning) {
+          audioStatus.textContent = '오디오 엔진 준비됨 — 건반을 누르거나 DRONE을 켜세요';
+        }
+      }
+
+      function toggleDrone(forceState) {
+        ensureAudio();
+        droneOn = typeof forceState === 'boolean' ? forceState : !droneOn;
+        const now = ctx.currentTime;
+        ampGain.gain.cancelScheduledValues(now);
+        ampGain.gain.setTargetAtTime(droneOn ? 0.8 : 0, now, 0.04);
+        updateSynthParams();
+        updatePowerUI();
+      }
+
+      powerBtn.addEventListener('click', () => toggleDrone());
+      swDrone.addEventListener('click', () => toggleDrone());
+
+      function bindRocker(btn, getter, setter) {
+        btn.addEventListener('click', () => {
+          const next = !getter();
+          setter(next);
+          btn.setAttribute('aria-pressed', String(next));
+          updateSynthParams();
+        });
+      }
+      bindRocker(swOsc2, () => osc2Enabled, (v) => { osc2Enabled = v; });
+      bindRocker(swGlide, () => glideEnabled, (v) => { glideEnabled = v; });
+      bindRocker(swFilterMod, () => filterModEnabled, (v) => { filterModEnabled = v; });
+      bindRocker(swDrive, () => driveEnabled, (v) => { driveEnabled = v; });
+
+      [kRange, kTune, kWave, kDetune, kCutoff, kEmphasis, kLfoRate, kModDepth, kAttack, kDecay, kVolume]
+        .forEach((el) => el.addEventListener('input', updateSynthParams));
+
+      // ---- Playable Mini Keyboard ----
+      const keyLayout = [
+        { name: 'C', key: 'A', midi: 48, black: false },
+        { name: 'C#', key: 'W', midi: 49, black: true },
+        { name: 'D', key: 'S', midi: 50, black: false },
+        { name: 'D#', key: 'E', midi: 51, black: true },
+        { name: 'E', key: 'D', midi: 52, black: false },
+        { name: 'F', key: 'F', midi: 53, black: false },
+        { name: 'F#', key: 'T', midi: 54, black: true },
+        { name: 'G', key: 'G', midi: 55, black: false },
+        { name: 'G#', key: 'Y', midi: 56, black: true },
+        { name: 'A', key: 'H', midi: 57, black: false },
+        { name: 'A#', key: 'U', midi: 58, black: true },
+        { name: 'B', key: 'J', midi: 59, black: false },
+        { name: 'C4', key: 'K', midi: 60, black: false },
+      ];
+
+      const pianoEl = document.getElementById('pianoKeys');
+      const keyBtnMap = new Map();
+
+      keyLayout.forEach((k) => {
+        if (!k.black) {
+          const btn = document.createElement('div');
+          btn.className = 'key-white';
+          btn.innerHTML = `<span>${k.key}</span>`;
+          attachKeyPointer(btn, k.midi);
+          pianoEl.appendChild(btn);
+          keyBtnMap.set(k.key.toLowerCase(), { btn, midi: k.midi });
+        } else {
+          const slot = document.createElement('div');
+          slot.className = 'key-black-slot';
+          const btn = document.createElement('div');
+          btn.className = 'key-black';
+          btn.textContent = k.key;
+          attachKeyPointer(btn, k.midi);
+          slot.appendChild(btn);
+          pianoEl.appendChild(slot);
+          keyBtnMap.set(k.key.toLowerCase(), { btn, midi: k.midi });
+        }
+      });
+
+      function attachKeyPointer(el, midi) {
+        el.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          el.classList.add('active');
+          triggerNote(midi);
+        });
+        const up = () => {
+          if (el.classList.contains('active')) {
+            el.classList.remove('active');
+            releaseNote();
+          }
+        };
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointerleave', up);
+        el.addEventListener('pointercancel', up);
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (e.repeat || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        const hit = keyBtnMap.get(e.key.toLowerCase());
+        if (hit) {
+          hit.btn.classList.add('active');
+          triggerNote(hit.midi);
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        const hit = keyBtnMap.get(e.key.toLowerCase());
+        if (hit) {
+          hit.btn.classList.remove('active');
+          releaseNote();
+        }
+      });
+
+      // ---- Oscilloscope Animation ----
+      const scopeCanvas = document.getElementById('scopeCanvas');
+      const sctx = scopeCanvas.getContext('2d');
+      const buf = new Uint8Array(512);
+
+      function drawScope() {
+        const w = scopeCanvas.width;
+        const h = scopeCanvas.height;
+        sctx.fillStyle = '#060809';
+        sctx.fillRect(0, 0, w, h);
+
+        // Subtle graticule
+        sctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        sctx.lineWidth = 1;
+        sctx.beginPath();
+        sctx.moveTo(0, h / 2);
+        sctx.lineTo(w, h / 2);
+        sctx.stroke();
+
+        sctx.strokeStyle = '#f59e0b';
+        sctx.lineWidth = 2;
+        sctx.beginPath();
+
+        if (analyser && audioRunning) {
+          analyser.getByteTimeDomainData(buf);
+          let peak = 0;
+          for (let i = 0; i < buf.length; i++) {
+            const v = (buf[i] - 128) / 128;
+            peak = Math.max(peak, Math.abs(v));
+            const x = (i / (buf.length - 1)) * w;
+            const y = h / 2 + v * (h * 0.42);
+            if (i === 0) sctx.moveTo(x, y);
+            else sctx.lineTo(x, y);
+          }
+          const hot = driveEnabled || kEmphasis.value > 6.5 || peak > 0.28;
+          overloadBulb.classList.toggle('lit', hot && peak > 0.02);
+        } else {
+          // Idle standby trace
+          const t = performance.now() * 0.002;
+          for (let x = 0; x <= w; x += 4) {
+            const y = h / 2 + Math.sin(x * 0.04 + t) * 2.5;
+            if (x === 0) sctx.moveTo(x, y);
+            else sctx.lineTo(x, y);
+          }
+        }
+        sctx.stroke();
+        requestAnimationFrame(drawScope);
+      }
+      requestAnimationFrame(drawScope);
+
+      // ---- Component Playground ----
+      const pgKnob = document.getElementById('pgKnob');
+      const pgVariant = document.getElementById('pgVariant');
+      const pgCap = document.getElementById('pgCap');
+      const pgSize = document.getElementById('pgSize');
+      const pgDragMode = document.getElementById('pgDragMode');
+      const pgDotColor = document.getElementById('pgDotColor');
+      const pgLabel = document.getElementById('pgLabel');
+      const pgBipolar = document.getElementById('pgBipolar');
+      const pgDetents = document.getElementById('pgDetents');
+      const pgArc = document.getElementById('pgArc');
+      const pgDisabled = document.getElementById('pgDisabled');
+      const snippetOut = document.getElementById('snippetOut');
+      const eventLog = document.getElementById('eventLog');
+
+      function syncPlayground() {
+        pgKnob.setAttribute('variant', pgVariant.value);
+        pgKnob.setAttribute('cap', pgCap.value);
+        pgKnob.setAttribute('size', pgSize.value);
+        pgKnob.setAttribute('drag-mode', pgDragMode.value);
+        pgKnob.setAttribute('dot-color', pgDotColor.value);
+        pgKnob.setAttribute('label', pgLabel.value);
+
+        if (pgDetents.checked) {
+          pgKnob.setAttribute('detents', '');
+          pgKnob.setAttribute('scale-labels', "LO,32',16',8',4',2'");
+          pgKnob.setAttribute('min', '0');
+          pgKnob.setAttribute('max', '5');
+          pgKnob.setAttribute('step', '1');
+          pgKnob.removeAttribute('bipolar');
+        } else {
+          pgKnob.removeAttribute('detents');
+          if (pgBipolar.checked) {
+            pgKnob.setAttribute('bipolar', '');
+            pgKnob.setAttribute('min', '-5');
+            pgKnob.setAttribute('max', '5');
+            pgKnob.setAttribute('step', '0.1');
+            pgKnob.setAttribute('scale-labels', '-5,-3,-1,0,+1,+3,+5');
+          } else {
+            pgKnob.removeAttribute('bipolar');
+            pgKnob.setAttribute('min', '0');
+            pgKnob.setAttribute('max', '10');
+            pgKnob.setAttribute('step', '0.1');
+            pgKnob.setAttribute('scale-labels', '0,2,4,6,8,10');
+          }
+        }
+
+        if (pgArc.checked) pgKnob.setAttribute('show-arc', '');
+        else pgKnob.removeAttribute('show-arc');
+
+        if (pgDisabled.checked) pgKnob.setAttribute('disabled', '');
+        else pgKnob.removeAttribute('disabled');
+
+        renderSnippet();
+      }
+
+      function renderSnippet() {
+        const attrs = [
+          `label="${pgLabel.value}"`,
+          `variant="${pgVariant.value}"`,
+          `cap="${pgCap.value}"`,
+          `size="${pgSize.value}"`,
+          `min="${pgKnob.min}"`,
+          `max="${pgKnob.max}"`,
+          `value="${pgKnob.value}"`,
+        ];
+        if (pgDragMode.value !== 'vertical') attrs.push(`drag-mode="${pgDragMode.value}"`);
+        if (pgDotColor.value !== '#f3f3ef') attrs.push(`dot-color="${pgDotColor.value}"`);
+        if (pgDetents.checked) attrs.push('detents', `scale-labels="LO,32',16',8',4',2'"`);
+        else if (pgBipolar.checked) attrs.push('bipolar', 'scale-labels="-5,-3,-1,0,+1,+3,+5"');
+        else attrs.push('scale-labels="0,2,4,6,8,10"');
+        if (pgArc.checked) attrs.push('show-arc');
+        if (pgDisabled.checked) attrs.push('disabled');
+
+        snippetOut.textContent = `<moog-knob\n  ${attrs.join('\n  ')}\n></moog-knob>`;
+      }
+
+      function logEvent(type, detail) {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        line.innerHTML = `<span style="color:#6b7280">[${time}]</span> <span class="log-type-${type}">${type}</span> → value: ${detail.value}, norm: ${detail.normalized.toFixed(2)}, fmt: "${detail.formatted}"`;
+        eventLog.prepend(line);
+        while (eventLog.children.length > 25) {
+          eventLog.removeChild(eventLog.lastChild);
+        }
+        renderSnippet();
+      }
+
+      pgKnob.addEventListener('input', (e) => logEvent('input', e.detail));
+      pgKnob.addEventListener('change', (e) => logEvent('change', e.detail));
+
+      [pgVariant, pgCap, pgSize, pgDragMode, pgDotColor, pgLabel, pgBipolar, pgDetents, pgArc, pgDisabled]
+        .forEach((el) => el.addEventListener('input', syncPlayground));
+
+      document.getElementById('clearLogBtn').addEventListener('click', () => {
+        eventLog.innerHTML = '';
+      });
+
+      document.getElementById('copySnippetBtn').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(snippetOut.textContent);
+          const btn = document.getElementById('copySnippetBtn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+        } catch (_) {}
+      });
+
+      syncPlayground();
+    })();
+  </script>
+</body>
+</html>
