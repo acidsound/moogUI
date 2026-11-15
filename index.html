@@ -2437,14 +2437,10 @@ registerMoogKnob('moog-knob');
  *
  * Variants:
  *  - variant="rocker" : Iconic Minimoog Model D 3D illuminated rocker paddle
- *  - variant="toggle" : Classic metallic bat-handle toggle switch with center-locked ball pivot
+ *  - variant="toggle" : Precision SVG metallic bat-handle toggle switch with
+ *                       center-fused ball pivot & zero-drift 3D foreshortening
  *
  * Includes built-in ON LED backlight illumination (disable with backlight="false").
- *
- * @example
- * <moog-switch label="FILTER MOD" color="orange" checked></moog-switch>
- * <moog-switch label="NOISE" color="blue" on-label="WHITE" off-label="PINK"></moog-switch>
- * <moog-switch label="POWER" variant="toggle" checked></moog-switch>
  */
 
 const SWITCH_COLORS = {
@@ -2501,6 +2497,35 @@ const SWITCH_SIZES = {
   lg: 1.24,
 };
 
+function buildToggleBatPath(cx, cy, tilt) {
+  // tilt: -1 = straight UP (ON), 0 = pointing toward camera, +1 = straight DOWN (OFF)
+  const rBase = 3.8;
+  const rTip = 6.1 - 0.7 * Math.abs(tilt);
+  const tipY = cy + tilt * 18.5;
+  const dy = tipY - cy;
+
+  if (Math.abs(dy) < 0.8) {
+    return {
+      d: `M${cx - rTip},${cy} A${rTip},${rTip} 0 1 1 ${cx + rTip},${cy} A${rTip},${rTip} 0 1 1 ${cx - rTip},${cy} Z`,
+      tipY,
+      rTip,
+    };
+  }
+
+  const sweep = dy < 0 ? 1 : 0;
+  const wTip = rTip * 0.96;
+  const d = [
+    `M${(cx - rBase).toFixed(2)},${cy.toFixed(2)}`,
+    `L${(cx - wTip).toFixed(2)},${tipY.toFixed(2)}`,
+    `A${rTip.toFixed(2)},${rTip.toFixed(2)} 0 1 ${sweep} ${(cx + wTip).toFixed(2)},${tipY.toFixed(2)}`,
+    `L${(cx + rBase).toFixed(2)},${cy.toFixed(2)}`,
+    `A${rBase.toFixed(2)},${rBase.toFixed(2)} 0 1 ${sweep} ${(cx - rBase).toFixed(2)},${cy.toFixed(2)}`,
+    'Z',
+  ].join(' ');
+
+  return { d, tipY, rTip };
+}
+
 class MoogSwitch extends HTMLElement {
   static get observedAttributes() {
     return [
@@ -2524,6 +2549,9 @@ class MoogSwitch extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._checked = false;
     this._rendered = false;
+    this._toggleTilt = 1; // +1 = OFF (down), -1 = ON (up)
+    this._animRaf = null;
+    this._uid = `ms-${Math.random().toString(36).slice(2, 9)}`;
 
     this._onClick = this._onClick.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
@@ -2531,20 +2559,25 @@ class MoogSwitch extends HTMLElement {
 
   connectedCallback() {
     this._checked = this.hasAttribute('checked') && this.getAttribute('checked') !== 'false';
+    this._toggleTilt = this._checked ? -1 : 1;
     this._render();
-    this._updateVisuals();
+    this._updateVisuals(false);
+  }
+
+  disconnectedCallback() {
+    if (this._animRaf) cancelAnimationFrame(this._animRaf);
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal) return;
     if (name === 'checked') {
       this._checked = newVal !== null && newVal !== 'false';
-      if (this._rendered) this._updateVisuals();
+      if (this._rendered) this._updateVisuals(true);
       return;
     }
     if (this._rendered) {
       this._render();
-      this._updateVisuals();
+      this._updateVisuals(false);
     }
   }
 
@@ -2557,7 +2590,7 @@ class MoogSwitch extends HTMLElement {
       this._checked = next;
       if (next) this.setAttribute('checked', '');
       else this.removeAttribute('checked');
-      if (this._rendered) this._updateVisuals();
+      if (this._rendered) this._updateVisuals(true);
     }
   }
 
@@ -2632,6 +2665,7 @@ class MoogSwitch extends HTMLElement {
     const ledCore = customLed ? '#ffffff' : palette.ledCore;
     const ledBright = customLed || palette.ledBright;
     const hasBacklight = this.backlight;
+    const uid = this._uid;
 
     const labelHtml = label ? `<div class="sw-label">${this._esc(label)}</div>` : '';
 
@@ -2663,19 +2697,63 @@ class MoogSwitch extends HTMLElement {
         </div>
       `;
 
+    // Hex nut points around exact center (30, 30), radius 14.5
+    const hexPts = Array.from({ length: 6 }, (_, i) => {
+      const a = (i * Math.PI) / 3 - Math.PI / 2;
+      return `${(30 + 14.5 * Math.cos(a)).toFixed(2)},${(30 + 14.5 * Math.sin(a)).toFixed(2)}`;
+    }).join(' ');
+
+    const initBat = buildToggleBatPath(30, 30, this._toggleTilt);
+
     const toggleBodyHtml = `
       <div class="toggle-wrap ${isVert ? 'vertical' : 'horizontal'}">
         <span class="state-tag tag-on">${this._esc(isVert ? onLabel : offLabel)}</span>
         <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
-          <span class="toggle-led-ring"></span>
-          <span class="hex-nut"></span>
-          <span class="toggle-well"></span>
-          <span class="pivot-ball"></span>
-          <span class="bat-pivot-stage">
-            <span class="bat-arm">
-              <span class="bat-tip"></span>
-            </span>
-          </span>
+          <svg class="toggle-svg" viewBox="0 0 60 60" aria-hidden="true">
+            <defs>
+              <radialGradient id="${uid}-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="35%" stop-color="${ledBright}" stop-opacity="0.95" />
+                <stop offset="72%" stop-color="${ledBright}" stop-opacity="0.35" />
+                <stop offset="100%" stop-color="${ledBright}" stop-opacity="0" />
+              </radialGradient>
+              <linearGradient id="${uid}-nut" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="#e2e8f0" />
+                <stop offset="50%" stop-color="#8b949e" />
+                <stop offset="100%" stop-color="#4b525a" />
+              </linearGradient>
+              <radialGradient id="${uid}-well" cx="50%" cy="50%" r="50%">
+                <stop offset="45%" stop-color="#050507" />
+                <stop offset="85%" stop-color="#1e2126" />
+                <stop offset="100%" stop-color="#474d56" />
+              </radialGradient>
+              <linearGradient id="${uid}-chrome" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#474e57" />
+                <stop offset="28%" stop-color="#f1f5f9" />
+                <stop offset="52%" stop-color="#cbd5e1" />
+                <stop offset="78%" stop-color="#64748b" />
+                <stop offset="100%" stop-color="#334155" />
+              </linearGradient>
+              <radialGradient id="${uid}-tipglint" cx="35%" cy="32%" r="60%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
+                <stop offset="55%" stop-color="#e2e8f0" stop-opacity="0.35" />
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+
+            <!-- Backlight Ring behind Hex Nut -->
+            <circle class="toggle-led-ring" cx="30" cy="30" r="22" fill="url(#${uid}-glow)" />
+
+            <!-- Hex Mounting Nut & Recessed Washer -->
+            <polygon points="${hexPts}" fill="url(#${uid}-nut)" stroke="#1a1c20" stroke-width="1" />
+            <circle cx="30" cy="30" r="10.2" fill="#2c3037" stroke="rgba(255,255,255,0.22)" stroke-width="0.7" />
+            <circle cx="30" cy="30" r="8.2" fill="url(#${uid}-well)" />
+
+            <!-- Center-Fused Ball Pivot & Unified Chrome Bat Handle -->
+            <path class="bat-shadow" d="${initBat.d}" fill="rgba(0,0,0,0.62)" transform="translate(2.2, 2.8)" />
+            <circle cx="30" cy="30" r="4.6" fill="url(#${uid}-chrome)" stroke="#0f1115" stroke-width="0.6" />
+            <path class="bat-shaft" d="${initBat.d}" fill="url(#${uid}-chrome)" stroke="#1e242c" stroke-width="0.65" />
+            <circle class="bat-tip-glint" cx="28.7" cy="${(initBat.tipY - 1.2).toFixed(2)}" r="${(initBat.rTip * 0.72).toFixed(2)}" fill="url(#${uid}-tipglint)" />
+          </svg>
         </button>
         <span class="state-tag tag-off">${this._esc(isVert ? offLabel : onLabel)}</span>
       </div>
@@ -2742,7 +2820,6 @@ class MoogSwitch extends HTMLElement {
         :host(:not([checked])) .tag-off {
           color: #e8e6df;
         }
-        /* Swap tag highlight if toggle is horizontal (left=off, right=on) */
         .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); text-shadow: none; }
         .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); text-shadow: none; }
         :host([checked]) .toggle-wrap.horizontal .tag-off {
@@ -2769,14 +2846,8 @@ class MoogSwitch extends HTMLElement {
             inset 0 2px 5px rgba(0, 0, 0, 0.9);
           transition: box-shadow 140ms ease;
         }
-        .rocker-housing.vertical {
-          width: 28px;
-          height: 46px;
-        }
-        .rocker-housing.horizontal {
-          width: 46px;
-          height: 28px;
-        }
+        .rocker-housing.vertical { width: 28px; height: 46px; }
+        .rocker-housing.horizontal { width: 46px; height: 28px; }
         ${
           hasBacklight
             ? `
@@ -2808,31 +2879,21 @@ class MoogSwitch extends HTMLElement {
 
         .rocker-housing.vertical .rocker-paddle {
           background: linear-gradient(180deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow:
-            inset 0 -5px 8px rgba(0, 0, 0, 0.52),
-            inset 0 2px 3px rgba(255, 255, 255, 0.22);
+          box-shadow: inset 0 -5px 8px rgba(0, 0, 0, 0.52), inset 0 2px 3px rgba(255, 255, 255, 0.22);
         }
         .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
           background: linear-gradient(180deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow:
-            inset 0 5px 8px rgba(0, 0, 0, 0.42),
-            inset 0 -2px 3px rgba(255, 255, 255, 0.28);
+          box-shadow: inset 0 5px 8px rgba(0, 0, 0, 0.42), inset 0 -2px 3px rgba(255, 255, 255, 0.28);
         }
-
         .rocker-housing.horizontal .rocker-paddle {
           background: linear-gradient(90deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
-          box-shadow:
-            inset 5px 0 8px rgba(0, 0, 0, 0.45),
-            inset -2px 0 3px rgba(255, 255, 255, 0.22);
+          box-shadow: inset 5px 0 8px rgba(0, 0, 0, 0.45), inset -2px 0 3px rgba(255, 255, 255, 0.22);
         }
         .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
           background: linear-gradient(90deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
-          box-shadow:
-            inset -5px 0 8px rgba(0, 0, 0, 0.42),
-            inset 2px 0 3px rgba(255, 255, 255, 0.28);
+          box-shadow: inset -5px 0 8px rgba(0, 0, 0, 0.42), inset 2px 0 3px rgba(255, 255, 255, 0.28);
         }
 
-        /* Internal Translucent LED Backlight Overlay */
         .paddle-backlight {
           position: absolute;
           inset: 0;
@@ -2846,13 +2907,8 @@ class MoogSwitch extends HTMLElement {
         .rocker-housing.horizontal .paddle-backlight {
           background: radial-gradient(circle at 76% 50%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
         }
-        ${
-          hasBacklight
-            ? `.rocker-housing[aria-checked="true"] .paddle-backlight { opacity: 0.72; }`
-            : ''
-        }
+        ${hasBacklight ? `.rocker-housing[aria-checked="true"] .paddle-backlight { opacity: 0.72; }` : ''}
 
-        /* Crisp Illuminated LED Pip / Lens Slit on the ON side */
         .paddle-led-slit {
           position: absolute;
           border-radius: 999px;
@@ -2862,18 +2918,10 @@ class MoogSwitch extends HTMLElement {
           transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
         }
         .rocker-housing.vertical .paddle-led-slit {
-          width: 11px;
-          height: 3.5px;
-          top: 5px;
-          left: 50%;
-          transform: translateX(-50%);
+          width: 11px; height: 3.5px; top: 5px; left: 50%; transform: translateX(-50%);
         }
         .rocker-housing.horizontal .paddle-led-slit {
-          width: 3.5px;
-          height: 11px;
-          right: 5px;
-          top: 50%;
-          transform: translateY(-50%);
+          width: 3.5px; height: 11px; right: 5px; top: 50%; transform: translateY(-50%);
         }
         ${
           hasBacklight
@@ -2893,143 +2941,39 @@ class MoogSwitch extends HTMLElement {
           border-radius: 1px;
         }
         .rocker-housing.vertical .paddle-ridge {
-          width: 82%;
-          height: 2.5px;
-          top: 50%;
-          transform: translateY(-50%);
+          width: 82%; height: 2.5px; top: 50%; transform: translateY(-50%);
         }
         .rocker-housing.horizontal .paddle-ridge {
-          width: 2.5px;
-          height: 82%;
-          left: 50%;
-          transform: translateX(-50%);
+          width: 2.5px; height: 82%; left: 50%; transform: translateX(-50%);
         }
 
-        /* ---- Vintage Chrome Bat Toggle Switch (Center-Locked Pivot) ---- */
+        /* ---- Precision SVG Toggle Switch ---- */
         .toggle-housing {
           appearance: none;
           border: none;
           background: transparent;
-          width: 44px;
+          width: 54px;
           height: 54px;
           padding: 0;
           cursor: pointer;
           outline: none;
-          position: relative;
-          display: grid;
-          place-items: center;
-          border-radius: 8px;
+          display: block;
+          border-radius: 10px;
         }
         .toggle-housing.horizontal {
           transform: rotate(90deg);
         }
-
-        /* Illuminated Backlight Ring under Hex Nut when ON */
+        .toggle-svg {
+          width: 100%;
+          height: 100%;
+          display: block;
+          overflow: visible;
+        }
         .toggle-led-ring {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 30px;
-          height: 30px;
-          margin-left: -15px;
-          margin-top: -15px;
-          border-radius: 50%;
-          pointer-events: none;
           opacity: 0;
-          background: radial-gradient(circle, rgba(${palette.glow}, 0.85) 35%, rgba(${palette.glow}, 0) 75%);
-          filter: blur(2px);
           transition: opacity 120ms ease;
         }
-        ${
-          hasBacklight
-            ? `.toggle-housing[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }`
-            : ''
-        }
-
-        .hex-nut {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 26px;
-          height: 26px;
-          margin-left: -13px;
-          margin-top: -13px;
-          background: linear-gradient(135deg, #d7dce2 0%, #7d858e 55%, #b5bcc4 100%);
-          clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-          filter: drop-shadow(0 3px 5px rgba(0,0,0,0.85));
-        }
-
-        .toggle-well {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 15px;
-          height: 15px;
-          margin-left: -7.5px;
-          margin-top: -7.5px;
-          border-radius: 50%;
-          background: radial-gradient(circle, #050507 52%, #3c4047 100%);
-          border: 1.5px solid #1e2024;
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.95);
-        }
-
-        /* Fixed center ball-joint at exact (50%, 50%) */
-        .pivot-ball {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 10px;
-          height: 10px;
-          margin-left: -5px;
-          margin-top: -5px;
-          border-radius: 50%;
-          background: radial-gradient(circle at 35% 32%, #f8fafc 0%, #94a3b8 55%, #334155 100%);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.9);
-          z-index: 2;
-        }
-
-        /* Bat handle anchored strictly at (50%, 50%) — flips vertically in Z-plane with zero center drift */
-        .bat-pivot-stage {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 0;
-          height: 0;
-          z-index: 3;
-          perspective: 140px;
-          pointer-events: none;
-        }
-
-        .bat-arm {
-          position: absolute;
-          left: -4.5px;
-          top: -22px;
-          width: 9px;
-          height: 22px;
-          border-radius: 4.5px 4.5px 3px 3px;
-          background: linear-gradient(90deg, #525860 0%, #f1f5f9 36%, #9aa2ab 76%, #3f454d 100%);
-          box-shadow: 0 3px 6px rgba(0,0,0,0.75);
-          transform-origin: 50% 22px;
-          /* Flip down around exact base pivot (50%, 22px) -> sits dead-center at (0, 0) = (50%, 50%) */
-          transform: rotateX(158deg);
-          /* Fast late-accelerating snap, zero overshoot/wobble */
-          transition: transform 95ms cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        .toggle-housing[aria-checked="true"] .bat-arm {
-          transform: rotateX(22deg);
-        }
-
-        .bat-tip {
-          position: absolute;
-          top: -1px;
-          left: -1px;
-          width: 11px;
-          height: 9px;
-          border-radius: 5.5px;
-          background: radial-gradient(circle at 38% 35%, #ffffff 0%, #cbd5e1 55%, #475569 100%);
-          box-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        }
+        ${hasBacklight ? `.toggle-housing[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }` : ''}
       </style>
 
       <div class="wrap">
@@ -3040,14 +2984,58 @@ class MoogSwitch extends HTMLElement {
     `;
 
     this._btnEl = this.shadowRoot.querySelector('button[role="switch"]');
+    this._batShaftEl = this.shadowRoot.querySelector('.bat-shaft');
+    this._batShadowEl = this.shadowRoot.querySelector('.bat-shadow');
+    this._batGlintEl = this.shadowRoot.querySelector('.bat-tip-glint');
+
     this._btnEl.addEventListener('click', this._onClick);
     this._btnEl.addEventListener('keydown', this._onKeyDown);
     this._rendered = true;
   }
 
-  _updateVisuals() {
+  _applyToggleTilt(tilt) {
+    this._toggleTilt = tilt;
+    if (!this._batShaftEl) return;
+    const bat = buildToggleBatPath(30, 30, tilt);
+    this._batShaftEl.setAttribute('d', bat.d);
+    if (this._batShadowEl) this._batShadowEl.setAttribute('d', bat.d);
+    if (this._batGlintEl) {
+      this._batGlintEl.setAttribute('cy', (bat.tipY - 1.2).toFixed(2));
+      this._batGlintEl.setAttribute('r', (bat.rTip * 0.72).toFixed(2));
+    }
+  }
+
+  _updateVisuals(animate = true) {
     if (!this._rendered || !this._btnEl) return;
     this._btnEl.setAttribute('aria-checked', String(this._checked));
+
+    if (this.variant !== 'toggle' || !this._batShaftEl) return;
+
+    const targetTilt = this._checked ? -1 : 1;
+    if (!animate || typeof requestAnimationFrame === 'undefined') {
+      this._applyToggleTilt(targetTilt);
+      return;
+    }
+
+    if (this._animRaf) cancelAnimationFrame(this._animRaf);
+    const startTilt = this._toggleTilt;
+    if (Math.abs(targetTilt - startTilt) < 0.001) return;
+
+    const duration = 95;
+    const startTime = performance.now();
+
+    const step = (now) => {
+      const p = Math.min(1, (now - startTime) / duration);
+      // Crisp ease-out cubic: zero overshoot, zero wobble
+      const eased = 1 - Math.pow(1 - p, 3);
+      this._applyToggleTilt(startTilt + (targetTilt - startTilt) * eased);
+      if (p < 1) {
+        this._animRaf = requestAnimationFrame(step);
+      } else {
+        this._animRaf = null;
+      }
+    };
+    this._animRaf = requestAnimationFrame(step);
   }
 
   _esc(str) {
