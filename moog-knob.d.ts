@@ -6,6 +6,9 @@ export type MoogKnobShowValue = 'always' | 'hover' | 'never';
 
 export interface MoogKnobEventDetail {
   value: number;
+  delta: number;
+  turns: number;
+  angle: number;
   normalized: number;
   formatted: string;
 }
@@ -17,11 +20,15 @@ export class MoogKnob extends HTMLElement {
   step: number;
   defaultValue: number;
   bipolar: boolean;
+  endless: boolean;
+  wrap: boolean;
+  revolution: number;
   disabled: boolean;
   variant: MoogKnobVariant;
   cap: MoogKnobCap;
   format: ((value: number) => string) | null;
   readonly normalized: number;
+  readonly turns: number;
   readonly formattedValue: string;
   reset(): void;
 }

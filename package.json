@@ -3,18 +3,28 @@
   "version": "1.0.0",
   "description": "Reusable Minimoog Model D style rotary knob Web Component (<moog-knob>) with live Web Audio synth demo",
   "type": "module",
-  "main": "./moog-knob.js",
-  "module": "./moog-knob.js",
-  "types": "./moog-knob.d.ts",
+  "main": "./moog-ui.js",
+  "module": "./moog-ui.js",
+  "types": "./moog-ui.d.ts",
   "exports": {
     ".": {
+      "types": "./moog-ui.d.ts",
+      "import": "./moog-ui.js"
+    },
+    "./knob": {
       "types": "./moog-knob.d.ts",
       "import": "./moog-knob.js"
-    }
+    },
+    "./switch": "./moog-switch.js",
+    "./led": "./moog-led.js"
   },
   "files": [
     "moog-knob.js",
     "moog-knob.d.ts",
+    "moog-switch.js",
+    "moog-led.js",
+    "moog-ui.js",
+    "moog-ui.d.ts",
     "README.md"
   ],
   "repository": {

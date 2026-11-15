@@ -1,89 +1,78 @@
-# `<moog-knob>` — Minimoog Model D Style Rotary Knob Web Component
+# Minimoog Model D Style Web UI Kit (`<moog-knob>`, `<moog-switch>`, `<moog-led>`)
 
-eBay 아이템 [Minimoog Model D Single Large Knob (`146240621533`)](https://www.ebay.com/itm/146240621533) 디자인을 충실하게 재현한 **의존성 없는 순수 Web Component**입니다.
+Minimoog Model D 하드웨어 컨트롤을 충실하게 재현한 **의존성 없는 순수 Web Components UI 키트**입니다.
 
-## 주요 특징
+- **GitHub Pages 라이브 데모**: https://acidsound.github.io/knobComponent/
 
-- **정통 Model D 하드웨어 디테일**
-  - 6엽 스캘럽드(Scalloped / Fluted) 글로시 블랙 바디와 2.5D 원근 측벽 하이라이트
-  - 회전 방향 및 상단 스튜디오 조명에 반응하는 동적 리지(Ridge) 반사광
-  - 방사형 브러시드 알루미늄 인레이 캡 (`conic-gradient` + 동심원 선반 가공 질감)
-  - 상단 능선과 하단 플레어 스커트에 정렬된 이중 인디케이터 도트
-- **3가지 실물 바리에이션 (`variant`)**
-  - `large` (기본값 — eBay `146240621533` 대형 오실레이터/필터 노브)
-  - `pointer` (포인터 비크가 강조된 중형 노브)
-  - `skirtless` (LFO Rate 스타일 스커트리스 노브)
-- **프로 오디오 인터랙션**
-  - 수직 드래그(기본) 및 원형 드래그(`drag-mode="circular"`) 지원
-  - `Shift + 드래그` 정밀 미세 조절 (6배 고해상도)
-  - `더블클릭` 또는 `Alt + 클릭`으로 기본값 리셋
-  - 마우스 휠 지원 및 터치/펜 포인터 캡처 지원
-  - `detents` 속성으로 로터리 스위치(예: 옥타브 레인지) 디텐트 모드 지원
-  - `role="slider"`, 방향키/`PageUp`/`PageDown`/`Home`/`End` 키보드 및 ARIA 완벽 지원
+## 포함 컴포넌트
+
+1. **`<moog-knob>`** (`moog-knob.js`)
+   - `variant="large"`: 6엽 스캘럽드(Scalloped / Fluted) 글로시 블랙 바디 + 방사형 브러시드 메탈 인레이 + 이중 인디케이터 도트 (eBay `146240621533`)
+   - `variant="pointer"`: 윙 패들 포인터 노브 + 노즈 화이트 인레이 스트라이프 + 동심원 메탈 캡
+   - `variant="skirtless"`: LFO Rate 스타일 컴팩트 스커트리스 노브
+   - **모드 지원**: 일반 포텐셔미터(`-150°..+150°`), 단계형 로터리 스위치(`detents`), **무한 회전 인코더(`endless`, `wrap`, `revolution`)**
+2. **`<moog-switch>`** (`moog-switch.js`)
+   - `variant="rocker"`: Minimoog Model D 입체 3D 로커 스위치 (`orange`, `blue`, `red`, `ivory`, `dark` / 수직·수평 지원)
+   - `variant="toggle"`: 육각 너트 & 크롬 배트 핸들 토글 스위치
+3. **`<moog-led>`** (`moog-led.js`)
+   - `variant="jewel"`: 컷 글래스 쥬얼 파일럿 램프 (`OVERLOAD` 스타일)
+   - `variant="flat"`: 리세스드 5mm 패널 다이오드 LED (`intensity` 아날로그 밝기 조절 및 `blink` 지원)
 
 ## 빠른 시작
 
 ```html
-<script type="module" src="./moog-knob.js"></script>
+<script type="module" src="./moog-ui.js"></script>
 
+<!-- 1. 대형 스캘럽드 바이폴라 노브 -->
 <moog-knob
   label="OSCILLATOR TUNE"
+  variant="large"
   min="-5"
   max="5"
   value="0"
-  step="0.05"
   bipolar
   scale-labels="-5,-3,-1,0,+1,+3,+5"
   unit="st"
-  size="lg"
 ></moog-knob>
+
+<!-- 2. 윙 포인터 로터리 스위치 -->
+<moog-knob
+  label="RANGE"
+  variant="pointer"
+  detents
+  scale-labels="LO,32',16',8',4',2'"
+  value="2"
+></moog-knob>
+
+<!-- 3. 무한 회전 360° 인코더 -->
+<moog-knob
+  label="PHASE"
+  endless
+  wrap
+  min="0"
+  max="360"
+  step="1"
+  value="0"
+  unit="°"
+  show-arc
+></moog-knob>
+
+<!-- 4. 스위치 & LED -->
+<moog-switch label="FILTER MOD" color="orange" checked></moog-switch>
+<moog-led label="OVERLOAD" color="amber" variant="jewel" on></moog-led>
 ```
 
-JavaScript로 이벤트 및 커스텀 포맷터 연결:
-
-```js
-const cutoff = document.querySelector('#cutoff');
-cutoff.format = (v) => {
-  const hz = 20 * Math.pow(600, v / 10);
-  return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`;
-};
-
-cutoff.addEventListener('input', (e) => {
-  console.log('Live:', e.detail.value, e.detail.formatted);
-});
-
-cutoff.addEventListener('change', (e) => {
-  console.log('Committed:', e.detail.value);
-});
-```
-
-## 속성 (Attributes)
+## `<moog-knob>` 주요 속성
 
 | 속성 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- |
-| `value` | `number` | `0` | 현재 값 |
-| `min` / `max` | `number` | `0` / `10` | 최소 / 최대 값 |
-| `step` | `number` | `0.01` | 스텝 단위 |
-| `default-value` | `number` | 초기값 | 더블클릭 리셋 기준값 |
-| `label` | `string` | `""` | 노브 상/하단 라벨 |
-| `label-position` | `'top' \| 'bottom'` | `'top'` | 라벨 위치 |
-| `unit` | `string` | `""` | 값 단위 (예: `Hz`, `st`, `%`) |
-| `size` | `'sm'\|'md'\|'lg'\|'xl'\|number` | `'md'` | 노브 크기 (`px` 또는 프리셋) |
-| `variant` | `'large'\|'pointer'\|'skirtless'` | `'large'` | 노브 외형 타입 |
-| `cap` | `'silver'\|'brass'\|'black'` | `'silver'` | 상단 메탈 인레이 마감 |
-| `dot-color` | `string` | `'#f3f3ef'` | 인디케이터 도트 색상 |
-| `bipolar` | `boolean` | `false` | 중앙 기준 양방향 강조 눈금 표시 |
-| `ticks` | `number` | `11` | 주요 눈금 개수 |
-| `minor-ticks` | `number` | `1` | 보조 눈금 개수 |
-| `scale-labels` | `string` | `""` | 쉼표 또는 JSON 배열 형태의 눈금 텍스트 |
+| `variant` | `'large' \| 'pointer' \| 'skirtless'` | `'large'` | 노브 외형 스타일 |
+| `cap` | `'silver' \| 'brass' \| 'black'` | `'silver'` | 상단 메탈 인레이 마감 |
+| `size` | `'sm' \| 'md' \| 'lg' \| 'xl' \| number` | `'md'` | 노브 크기 (`px` 또는 프리셋) |
+| `endless` | `boolean` | `false` | 360° 무한 회전 인코더 모드 |
+| `wrap` | `boolean` | `false` | `endless` 모드에서 `[min, max)` 순환 래핑 |
+| `revolution` | `number` | `max-min` | `endless` 모드에서 1회전(360°)당 값 변화량 |
 | `detents` | `number \| boolean` | `false` | 단계형 로터리 스위치 스냅 모드 |
-| `drag-mode` | `'vertical'\|'circular'` | `'vertical'` | 드래그 조작 방식 |
-| `show-value` | `'always'\|'hover'\|'never'` | `'always'` | 수치 배지 표시 정책 |
-| `show-arc` | `boolean` | `false` | 외곽 앰버 LED 링 표시 여부 |
-| `disabled` | `boolean` | `false` | 비활성화 여부 |
-
-## 데모 파일
-
-- **GitHub Pages 라이브 데모**: https://acidsound.github.io/knobComponent/
-- `index.html`: Web Audio API 기반 실시간 Minimoog 스타일 신시사이저 + 인터랙티브 컴포넌트 플레이그라운드 (단독 실행 가능)
-- `demo-esm.html`: ES Module(`moog-knob.js`) 직접 임포트 예제
+| `bipolar` | `boolean` | `false` | 중앙 기준 양방향 눈금 및 리셋 |
+| `drag-mode` | `'vertical' \| 'circular'` | `'vertical'` | 드래그 조작 방식 |
+| `show-arc` | `boolean` | `false` | 외곽 앰버 LED 링 표시 |

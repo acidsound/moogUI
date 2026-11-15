@@ -1,31 +1,18 @@
 /**
  * <moog-knob> — Reusable Minimoog Model D Style Rotary Knob Web Component
  *
- * Authentic recreation of the iconic Minimoog Model D large skirted knob
- * (fluted 6-lobe glossy black body, flared skirt with dual aligned indicator dots,
- * radial spun-aluminum inlay cap, and vintage silkscreened dial scale).
+ * Authentic recreation of Minimoog Model D hardware knobs:
+ *  - variant="large"     : Iconic 6-lobe scalloped skirted knob (eBay 146240621533)
+ *  - variant="pointer"   : Winged paddle pointer knob with recessed white nose stripe
+ *  - variant="skirtless" : Compact 6-lobe LFO Rate style skirtless knob
  *
- * Features:
- *  - Pure zero-dependency Web Component (Shadow DOM + SVG + CSS)
- *  - Variants: "large" (Model D Oscillator/Filter), "pointer", "skirtless"
- *  - Cap finishes: "silver" (brushed aluminum), "brass", "black"
- *  - Vertical or circular pointer drag, Shift for fine precision
- *  - Double-click / Alt+click to reset to default value
- *  - Mouse wheel support & full keyboard/ARIA slider accessibility
- *  - Continuous mode OR stepped rotary detent mode (e.g. Octave Range switch)
- *  - Dynamic specular flute highlights reacting to studio light angle as you turn
+ * Supports both bounded potentiometer sweeps (-150°..+150°), discrete rotary
+ * switch detents (detents), AND endless/infinite 360° rotary encoders (endless / wrap).
  *
  * @example
- * <moog-knob
- *   label="OSCILLATOR TUNE"
- *   min="-5"
- *   max="5"
- *   value="0"
- *   step="0.05"
- *   bipolar
- *   scale-labels="-5,-3,-1,0,+1,+3,+5"
- *   unit="st"
- * ></moog-knob>
+ * <moog-knob label="OSCILLATOR TUNE" min="-5" max="5" value="0" bipolar></moog-knob>
+ * <moog-knob label="ENCODER" endless wrap min="0" max="360" step="1" unit="°"></moog-knob>
+ * <moog-knob label="RANGE" variant="pointer" detents scale-labels="LO,32',16',8',4',2'"></moog-knob>
  */
 
 const LIGHT_ANGLE_RAD = (-135 * Math.PI) / 180; // Top-left studio key light
@@ -49,26 +36,22 @@ const VARIANT_CONFIG = {
     rDotSkirt: 59.5,
     dotTopRadius: 3.1,
     dotSkirtRadius: 3.4,
-    pointerExtend: 0,
     hasSkirt: true,
     skirtDot: true,
     bodyDy: 5.5,
+    isWingPointer: false,
   },
   pointer: {
-    rSkirt: 64,
-    rBodyBasePeak: 46.5,
-    rBodyBaseValley: 38.5,
-    rBodyTopPeak: 41.5,
-    rBodyTopValley: 35.0,
-    rCap: 27.5,
-    rDotTop: 37.5,
-    rDotSkirt: 57.5,
-    dotTopRadius: 2.7,
-    dotSkirtRadius: 3.0,
-    pointerExtend: 6.5,
+    rSkirt: 68,
+    rHubBase: 36.0,
+    rHubTop: 33.5,
+    rCap: 24.5,
+    rDotTop: 0,
+    rDotSkirt: 0,
     hasSkirt: true,
-    skirtDot: true,
-    bodyDy: 5.0,
+    skirtDot: false,
+    bodyDy: 5.8,
+    isWingPointer: true,
   },
   skirtless: {
     rSkirt: 50,
@@ -81,10 +64,10 @@ const VARIANT_CONFIG = {
     rDotSkirt: 0,
     dotTopRadius: 3.0,
     dotSkirtRadius: 0,
-    pointerExtend: 0,
     hasSkirt: false,
     skirtDot: false,
     bodyDy: 5.2,
+    isWingPointer: false,
   },
 };
 
@@ -99,12 +82,19 @@ function parseNumAttr(el, name, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function roundToStep(val, step, min) {
+function roundToStep(val, step, base = 0) {
   if (!step || step <= 0) return val;
-  const steps = Math.round((val - min) / step);
-  const res = min + steps * step;
+  const steps = Math.round((val - base) / step);
+  const res = base + steps * step;
   const decimals = (String(step).split('.')[1] || '').length;
   return Number(res.toFixed(Math.min(decimals + 2, 8)));
+}
+
+function wrapValue(val, min, max) {
+  const span = max - min;
+  if (span <= 0) return min;
+  const mod = (((val - min) % span) + span) % span;
+  return min + mod;
 }
 
 function polar(cx, cy, r, rad) {
@@ -113,27 +103,15 @@ function polar(cx, cy, r, rad) {
 
 /**
  * Generates an SVG path for the 6-lobed scalloped Moog knob profile.
- * Uses the harmonic profile cos(6θ) + 0.25*cos(12θ) which creates
- * narrow rounded ridges and wide smooth concave flutes.
  */
-function buildScallopedPath(cx, cy, rPeak, rValley, pointerExtend = 0, samples = 180) {
+function buildScallopedPath(cx, cy, rPeak, rValley, samples = 180) {
   const rMid = (rPeak + rValley) / 2;
   const amp = (rPeak - rValley) / 2;
-  // Normalize harmonic (cos(6t)+0.25*cos(12t)) range [-0.75, +1.25] -> [-1, +1]
-  // f(t) = (cos(6t) + 0.25*cos(12t) - 0.25) -> range [-1, +1]
   const pts = [];
   for (let i = 0; i < samples; i++) {
-    const u = (i / samples) * Math.PI * 2; // 0 = straight UP (-PI/2)
+    const u = (i / samples) * Math.PI * 2;
     const harmonic = Math.cos(6 * u) + 0.25 * Math.cos(12 * u) - 0.25;
-    let r = rMid + amp * harmonic;
-    if (pointerExtend > 0) {
-      // Smooth Gaussian-like extension on lobe 0 (around u = 0 / 2PI)
-      const dist = Math.min(u, Math.PI * 2 - u);
-      if (dist < 0.45) {
-        const w = Math.cos((dist / 0.45) * (Math.PI / 2));
-        r += pointerExtend * w * w;
-      }
-    }
+    const r = rMid + amp * harmonic;
     const theta = u - Math.PI / 2;
     const [x, y] = polar(cx, cy, r, theta);
     pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
@@ -143,16 +121,53 @@ function buildScallopedPath(cx, cy, rPeak, rValley, pointerExtend = 0, samples =
 }
 
 /**
- * Generates an SVG arc path from startDeg to endDeg (0 deg = straight UP).
+ * Generates the iconic Minimoog winged pointer knob silhouette (matching image-1.png):
+ * central circular hub + tapered front pointer nose + rear fan-tail thumb wing.
  */
+function buildWingPointerPath(cx, cy, rHub, scale = 1) {
+  const noseTipY = cy - 60.5 * scale;
+  const noseTopY = cy - 57.5 * scale;
+  const noseHalfTip = 7.2 * scale;
+  const noseHalfBase = 9.0 * scale;
+  const noseJoinY = cy - Math.sqrt(Math.max(1, rHub * rHub - noseHalfBase * noseHalfBase));
+
+  // Hub right-side junction into rear fan-tail wing
+  const wingJoinX = rHub * 0.905;
+  const wingJoinY = cy + rHub * 0.425;
+
+  const wingCornerX = 25.5 * scale;
+  const wingCornerY = cy + 41.5 * scale;
+  const wingBackX = 19.5 * scale;
+  const wingBackY = cy + 46.8 * scale;
+  const wingCenterBackY = cy + 49.0 * scale;
+
+  return [
+    `M${(cx - noseHalfTip).toFixed(2)},${noseTopY.toFixed(2)}`,
+    `Q${cx.toFixed(2)},${(noseTipY - 2.5 * scale).toFixed(2)} ${(cx + noseHalfTip).toFixed(2)},${noseTopY.toFixed(2)}`,
+    `L${(cx + noseHalfBase).toFixed(2)},${noseJoinY.toFixed(2)}`,
+    `A${rHub},${rHub} 0 0 1 ${(cx + wingJoinX).toFixed(2)},${wingJoinY.toFixed(2)}`,
+    `C${(cx + rHub * 0.88).toFixed(2)},${(cy + 27 * scale).toFixed(2)} ${(cx + wingCornerX * 1.03).toFixed(2)},${(cy + 34 * scale).toFixed(2)} ${(cx + wingCornerX).toFixed(2)},${wingCornerY.toFixed(2)}`,
+    `Q${(cx + wingCornerX).toFixed(2)},${wingBackY.toFixed(2)} ${(cx + wingBackX).toFixed(2)},${wingBackY.toFixed(2)}`,
+    `Q${cx.toFixed(2)},${wingCenterBackY.toFixed(2)} ${(cx - wingBackX).toFixed(2)},${wingBackY.toFixed(2)}`,
+    `Q${(cx - wingCornerX).toFixed(2)},${wingBackY.toFixed(2)} ${(cx - wingCornerX).toFixed(2)},${wingCornerY.toFixed(2)}`,
+    `C${(cx - wingCornerX * 1.03).toFixed(2)},${(cy + 34 * scale).toFixed(2)} ${(cx - rHub * 0.88).toFixed(2)},${(cy + 27 * scale).toFixed(2)} ${(cx - wingJoinX).toFixed(2)},${wingJoinY.toFixed(2)}`,
+    `A${rHub},${rHub} 0 0 1 ${(cx - noseHalfBase).toFixed(2)},${noseJoinY.toFixed(2)}`,
+    'Z',
+  ].join(' ');
+}
+
 function buildArcPath(cx, cy, r, startDeg, endDeg) {
-  if (Math.abs(endDeg - startDeg) < 0.01) return '';
+  const diff = endDeg - startDeg;
+  if (Math.abs(diff) < 0.01) return '';
+  if (Math.abs(diff) >= 359.9) {
+    return `M${cx},${cy - r} A${r},${r} 0 1 1 ${cx - 0.01},${cy - r}`;
+  }
   const startRad = ((startDeg - 90) * Math.PI) / 180;
   const endRad = ((endDeg - 90) * Math.PI) / 180;
   const [x1, y1] = polar(cx, cy, r, startRad);
   const [x2, y2] = polar(cx, cy, r, endRad);
-  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
-  const sweep = endDeg > startDeg ? 1 : 0;
+  const largeArc = Math.abs(diff) > 180 ? 1 : 0;
+  const sweep = diff > 0 ? 1 : 0;
   return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} ${sweep} ${x2.toFixed(2)},${y2.toFixed(2)}`;
 }
 
@@ -172,6 +187,9 @@ export class MoogKnob extends HTMLElement {
       'cap',
       'dot-color',
       'bipolar',
+      'endless',
+      'wrap',
+      'revolution',
       'ticks',
       'minor-ticks',
       'scale-labels',
@@ -192,10 +210,13 @@ export class MoogKnob extends HTMLElement {
     this.attachShadow({ mode: 'open' });
 
     this._value = 0;
+    this._continuousValue = 0; // tracks unwrapped value for smooth endless rotation
     this._defaultValue = null;
     this._dragging = false;
     this._dragStartY = 0;
     this._dragStartValue = 0;
+    this._dragStartContinuous = 0;
+    this._prevCircularAngle = 0;
     this._formatFn = null;
     this._uid = `mk-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -213,7 +234,7 @@ export class MoogKnob extends HTMLElement {
     if (this._defaultValue === null) {
       if (this.hasAttribute('default-value')) {
         this._defaultValue = Number(this.getAttribute('default-value'));
-      } else if (this.bipolar) {
+      } else if (this.bipolar && !this.endless) {
         this._defaultValue = (this.min + this.max) / 2;
       } else if (this.hasAttribute('value')) {
         this._defaultValue = Number(this.getAttribute('value'));
@@ -222,11 +243,9 @@ export class MoogKnob extends HTMLElement {
       }
     }
 
-    if (this.hasAttribute('value')) {
-      this._value = this._sanitize(Number(this.getAttribute('value')));
-    } else {
-      this._value = this._sanitize(this._defaultValue);
-    }
+    const initial = this.hasAttribute('value') ? Number(this.getAttribute('value')) : this._defaultValue;
+    this._value = this._sanitize(initial);
+    this._continuousValue = Number.isFinite(initial) ? initial : this._value;
 
     this._render();
     this._updateVisuals();
@@ -241,9 +260,11 @@ export class MoogKnob extends HTMLElement {
 
     if (name === 'value') {
       if (!this._rendered) return;
-      const next = this._sanitize(Number(newVal));
+      const rawNum = Number(newVal);
+      const next = this._sanitize(rawNum);
       if (next !== this._value) {
         this._value = next;
+        this._continuousValue = next;
         this._updateVisuals();
       }
       return;
@@ -266,9 +287,11 @@ export class MoogKnob extends HTMLElement {
     return this._value;
   }
   set value(v) {
-    const next = this._sanitize(Number(v));
+    const num = Number(v);
+    const next = this._sanitize(num);
     if (next !== this._value) {
       this._value = next;
+      this._continuousValue = next;
       this.setAttribute('value', String(next));
       if (this._rendered) this._updateVisuals();
     }
@@ -301,7 +324,7 @@ export class MoogKnob extends HTMLElement {
       }
       return 1;
     }
-    const v = parseNumAttr(this, 'step', 0.01);
+    const v = parseNumAttr(this, 'step', this.endless ? 1 : 0.01);
     return v > 0 ? v : 0.01;
   }
   set step(v) {
@@ -312,7 +335,7 @@ export class MoogKnob extends HTMLElement {
     if (this._defaultValue !== null && Number.isFinite(this._defaultValue)) {
       return this._sanitize(this._defaultValue);
     }
-    return this.bipolar ? this._sanitize((this.min + this.max) / 2) : this.min;
+    return this.bipolar && !this.endless ? this._sanitize((this.min + this.max) / 2) : this.min;
   }
   set defaultValue(v) {
     this._defaultValue = Number(v);
@@ -325,6 +348,32 @@ export class MoogKnob extends HTMLElement {
   set bipolar(flag) {
     if (flag) this.setAttribute('bipolar', '');
     else this.removeAttribute('bipolar');
+  }
+
+  get endless() {
+    return this.hasAttribute('endless') && this.getAttribute('endless') !== 'false';
+  }
+  set endless(flag) {
+    if (flag) this.setAttribute('endless', '');
+    else this.removeAttribute('endless');
+  }
+
+  get wrap() {
+    return this.hasAttribute('wrap') && this.getAttribute('wrap') !== 'false';
+  }
+  set wrap(flag) {
+    if (flag) this.setAttribute('wrap', '');
+    else this.removeAttribute('wrap');
+  }
+
+  get revolution() {
+    const custom = parseNumAttr(this, 'revolution', 0);
+    if (custom > 0) return custom;
+    const span = this.max - this.min;
+    return span > 0 ? span : 24;
+  }
+  set revolution(v) {
+    this.setAttribute('revolution', String(v));
   }
 
   get disabled() {
@@ -362,7 +411,16 @@ export class MoogKnob extends HTMLElement {
   get normalized() {
     const span = this.max - this.min;
     if (span <= 0) return 0;
+    if (this.endless && !this.wrap) {
+      const rev = this.revolution;
+      return (((this._continuousValue - this.min) % rev) + rev) % rev / rev;
+    }
     return clamp((this._value - this.min) / span, 0, 1);
+  }
+
+  get turns() {
+    if (!this.endless) return 0;
+    return Math.floor((this._continuousValue - this.min) / this.revolution);
   }
 
   get formattedValue() {
@@ -378,12 +436,14 @@ export class MoogKnob extends HTMLElement {
     const step = this.step;
     const dec = step >= 1 ? 0 : Math.min(2, (String(step).split('.')[1] || '').length);
     const numStr = this._value.toFixed(dec);
-    const signed = this.bipolar && this._value > 0 ? `+${numStr}` : numStr;
-    return unit ? `${signed} ${unit}` : signed;
+    const signed = (this.bipolar || (this.endless && !this.wrap)) && this._value > 0 ? `+${numStr}` : numStr;
+    return unit ? `${signed}${unit.startsWith('°') ? '' : ' '}${unit}` : signed;
   }
 
   reset() {
-    this._commitValue(this.defaultValue, true);
+    const def = this.defaultValue;
+    this._continuousValue = def;
+    this._commitValue(def, true);
   }
 
   // ---- Internal Helpers ----
@@ -411,9 +471,7 @@ export class MoogKnob extends HTMLElement {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed.map(String);
       }
-    } catch (_) {
-      // Fallback to comma-separated
-    }
+    } catch (_) {}
     return raw.split(',').map((s) => s.trim());
   }
 
@@ -430,11 +488,23 @@ export class MoogKnob extends HTMLElement {
 
   _sanitize(v) {
     if (!Number.isFinite(v)) return this.min;
+    if (this.endless) {
+      if (this.wrap) {
+        const wrapped = wrapValue(v, this.min, this.max);
+        const rounded = roundToStep(wrapped, this.step, this.min);
+        return rounded >= this.max ? this.min : rounded;
+      }
+      return roundToStep(v, this.step, 0);
+    }
     const clamped = clamp(v, this.min, this.max);
     return clamp(roundToStep(clamped, this.step, this.min), this.min, this.max);
   }
 
   _valueToAngle(val) {
+    if (this.endless) {
+      const rev = this.revolution;
+      return ((this._continuousValue - this.min) / rev) * 360;
+    }
     const minA = this._getMinAngle();
     const maxA = this._getMaxAngle();
     const span = this.max - this.min;
@@ -444,31 +514,46 @@ export class MoogKnob extends HTMLElement {
   }
 
   _setValueInternal(nextVal, emitInput = true) {
+    const prev = this._value;
+    if (this.endless) {
+      const steppedCont = roundToStep(nextVal, this.step, this.wrap ? this.min : 0);
+      this._continuousValue = steppedCont;
+    }
     const sanitized = this._sanitize(nextVal);
-    if (sanitized === this._value) return false;
+    if (sanitized === prev && !this.endless) return false;
+    if (this.endless && sanitized === prev && !emitInput) return false;
+
+    const delta = sanitized - prev;
+    if (this.endless && delta === 0) return false;
+
     this._value = sanitized;
+    if (!this.endless) this._continuousValue = sanitized;
     this.setAttribute('value', String(sanitized));
     this._updateVisuals();
     if (emitInput) {
-      this._emit('input');
+      this._emit('input', delta);
     }
     return true;
   }
 
   _commitValue(nextVal, emitBoth = false) {
+    const prev = this._value;
     const changed = this._setValueInternal(nextVal, emitBoth);
     if (changed || emitBoth) {
-      this._emit('change');
+      this._emit('change', this._value - prev);
     }
   }
 
-  _emit(type) {
+  _emit(type, delta = 0) {
     this.dispatchEvent(
       new CustomEvent(type, {
         bubbles: true,
         composed: true,
         detail: {
           value: this._value,
+          delta,
+          turns: this.turns,
+          angle: this._valueToAngle(this._value),
           normalized: this.normalized,
           formatted: this.formattedValue,
         },
@@ -486,6 +571,7 @@ export class MoogKnob extends HTMLElement {
     this._dragging = true;
     this._dragStartY = e.clientY;
     this._dragStartValue = this._value;
+    this._dragStartContinuous = this._continuousValue;
     this._dragMoved = false;
     this._dialEl.classList.add('is-active');
 
@@ -499,12 +585,25 @@ export class MoogKnob extends HTMLElement {
     }
 
     if (this.getAttribute('drag-mode') === 'circular') {
-      this._applyCircularPointer(e);
+      if (this.endless) {
+        this._prevCircularAngle = this._pointerAngleDeg(e);
+      } else {
+        this._applyCircularPointer(e);
+      }
     }
 
     window.addEventListener('pointermove', this._onPointerMove);
     window.addEventListener('pointerup', this._onPointerUp);
     window.addEventListener('pointercancel', this._onPointerUp);
+  }
+
+  _pointerAngleDeg(e) {
+    const rect = this._dialEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let deg = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI + 90;
+    if (deg > 180) deg -= 360;
+    return deg;
   }
 
   _onPointerMove(e) {
@@ -519,18 +618,23 @@ export class MoogKnob extends HTMLElement {
     const baseSens = parseNumAttr(this, 'sensitivity', 170);
     const sens = e.shiftKey ? baseSens * 6 : baseSens;
     const dy = this._dragStartY - e.clientY;
-    const span = this.max - this.min;
+    const span = this.endless ? this.revolution : this.max - this.min;
     const delta = (dy / sens) * span;
-    this._setValueInternal(this._dragStartValue + delta, true);
+    const base = this.endless ? this._dragStartContinuous : this._dragStartValue;
+    this._setValueInternal(base + delta, true);
   }
 
   _applyCircularPointer(e) {
-    const rect = this._dialEl.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    // Angle where 0 deg = straight UP, clockwise positive
-    let deg = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI + 90;
-    if (deg > 180) deg -= 360;
+    const deg = this._pointerAngleDeg(e);
+    if (this.endless) {
+      let diff = deg - this._prevCircularAngle;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      this._prevCircularAngle = deg;
+      const valDelta = (diff / 360) * this.revolution;
+      this._setValueInternal(this._continuousValue + valDelta, true);
+      return;
+    }
     const minA = this._getMinAngle();
     const maxA = this._getMaxAngle();
     const clampedDeg = clamp(deg, minA, maxA);
@@ -547,7 +651,7 @@ export class MoogKnob extends HTMLElement {
     } catch (_) {}
     this._cleanupDragListeners();
     if (this._dragMoved && this._value !== this._dragStartValue) {
-      this._emit('change');
+      this._emit('change', this._value - this._dragStartValue);
     }
   }
 
@@ -567,21 +671,22 @@ export class MoogKnob extends HTMLElement {
     if (this.disabled || this.getAttribute('wheel') === 'false') return;
     e.preventDefault();
     const dir = e.deltaY < 0 ? 1 : -1;
-    const span = this.max - this.min;
+    const span = this.endless ? this.revolution : this.max - this.min;
     const baseIncrement = this.hasAttribute('detents')
       ? this.step
       : Math.max(this.step, span / (e.shiftKey ? 200 : 45));
     const prev = this._value;
-    this._setValueInternal(this._value + dir * baseIncrement, true);
+    const base = this.endless ? this._continuousValue : this._value;
+    this._setValueInternal(base + dir * baseIncrement, true);
     if (this._value !== prev) {
       clearTimeout(this._wheelCommitTimer);
-      this._wheelCommitTimer = setTimeout(() => this._emit('change'), 160);
+      this._wheelCommitTimer = setTimeout(() => this._emit('change', this._value - prev), 160);
     }
   }
 
   _onKeyDown(e) {
     if (this.disabled) return;
-    const span = this.max - this.min;
+    const span = this.endless ? this.revolution : this.max - this.min;
     const isDetent = this.hasAttribute('detents');
     const fineStep = isDetent ? this.step : Math.max(this.step, span / 100);
     const normalStep = isDetent ? this.step : Math.max(this.step, span / 25);
@@ -589,27 +694,28 @@ export class MoogKnob extends HTMLElement {
     const delta = e.shiftKey ? fineStep : normalStep;
 
     let handled = true;
-    let next = this._value;
+    const base = this.endless ? this._continuousValue : this._value;
+    let next = base;
     switch (e.key) {
       case 'ArrowUp':
       case 'ArrowRight':
-        next = this._value + delta;
+        next = base + delta;
         break;
       case 'ArrowDown':
       case 'ArrowLeft':
-        next = this._value - delta;
+        next = base - delta;
         break;
       case 'PageUp':
-        next = this._value + coarseStep;
+        next = base + coarseStep;
         break;
       case 'PageDown':
-        next = this._value - coarseStep;
+        next = base - coarseStep;
         break;
       case 'Home':
         next = this.min;
         break;
       case 'End':
-        next = this.max;
+        next = this.endless ? base + this.revolution : this.max;
         break;
       default:
         handled = false;
@@ -632,31 +738,15 @@ export class MoogKnob extends HTMLElement {
     const showValueMode = this.getAttribute('show-value') || 'always';
     const showArc = this.hasAttribute('show-arc') && this.getAttribute('show-arc') !== 'false';
     const capType = this.cap;
+    const isEndless = this.endless;
 
-    const minA = this._getMinAngle();
-    const maxA = this._getMaxAngle();
+    const minA = isEndless ? 0 : this._getMinAngle();
+    const maxA = isEndless ? 360 : this._getMaxAngle();
 
-    // SVG coordinate system: 220x220 centered at (110, 110)
-    // Leaves room outside rSkirt=68 for ticks (r=74..85) and scale labels (r=96)
     const cx = 110;
     const cy = 110;
-    const bodyCy = cy - 2; // slight perspective lift
+    const bodyCy = cy - 2;
     const baseCy = bodyCy + cfg.bodyDy;
-
-    const baseScallop = buildScallopedPath(
-      cx,
-      baseCy,
-      cfg.rBodyBasePeak,
-      cfg.rBodyBaseValley,
-      cfg.pointerExtend
-    );
-    const topScallop = buildScallopedPath(
-      cx,
-      bodyCy,
-      cfg.rBodyTopPeak,
-      cfg.rBodyTopValley,
-      cfg.pointerExtend
-    );
 
     // Build dial ticks & labels
     const labels = this._getScaleLabels();
@@ -664,8 +754,10 @@ export class MoogKnob extends HTMLElement {
     const majorCount = labels
       ? labels.length
       : tickCountAttr !== null
-        ? Math.max(0, parseNumAttr(this, 'ticks', 11))
-        : 11;
+        ? Math.max(0, parseNumAttr(this, 'ticks', isEndless ? 12 : 11))
+        : isEndless
+          ? 12
+          : 11;
     const minorPerGap = this.hasAttribute('detents')
       ? 0
       : Math.max(0, parseNumAttr(this, 'minor-ticks', 1));
@@ -677,13 +769,14 @@ export class MoogKnob extends HTMLElement {
       const rTickOutMinor = cfg.hasSkirt ? 78.5 : 62.5;
       const rLabel = cfg.hasSkirt ? 96 : 80;
 
+      const denom = isEndless ? majorCount : majorCount - 1;
       for (let i = 0; i < majorCount; i++) {
-        const t = i / (majorCount - 1);
+        const t = i / denom;
         const deg = minA + t * (maxA - minA);
         const rad = ((deg - 90) * Math.PI) / 180;
         const [x1, y1] = polar(cx, cy, rTickIn, rad);
         const [x2, y2] = polar(cx, cy, rTickOutMajor, rad);
-        const isCenterBipolar = this.bipolar && Math.abs(deg) < 1;
+        const isCenterBipolar = !isEndless && this.bipolar && Math.abs(deg) < 1;
         ticksSvg += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="tick-major ${isCenterBipolar ? 'tick-center' : ''}" />`;
 
         if (labels && labels[i] !== undefined) {
@@ -691,9 +784,9 @@ export class MoogKnob extends HTMLElement {
           ticksSvg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" class="scale-label">${this._escapeHtml(labels[i])}</text>`;
         }
 
-        if (minorPerGap > 0 && i < majorCount - 1) {
+        if (minorPerGap > 0 && (isEndless || i < majorCount - 1)) {
           for (let m = 1; m <= minorPerGap; m++) {
-            const mt = (i + m / (minorPerGap + 1)) / (majorCount - 1);
+            const mt = (i + m / (minorPerGap + 1)) / denom;
             const mdeg = minA + mt * (maxA - minA);
             const mrad = ((mdeg - 90) * Math.PI) / 180;
             const [mx1, my1] = polar(cx, cy, rTickIn, mrad);
@@ -704,18 +797,67 @@ export class MoogKnob extends HTMLElement {
       }
     }
 
-    // 6 dynamic perspective ridge highlights in panel space (placed behind top face)
+    // Build body paths depending on variant (winged pointer vs 6-lobe scalloped)
+    let basePathD = '';
+    let topPathD = '';
     let ridgeHighlightsSvg = '';
-    for (let i = 0; i < 6; i++) {
-      ridgeHighlightsSvg += `<line class="ridge-glint" data-lobe="${i}" x1="0" y1="0" x2="0" y2="0" />`;
+    let topIndicatorSvg = '';
+
+    if (cfg.isWingPointer) {
+      basePathD = buildWingPointerPath(cx, baseCy, cfg.rHubBase, 1.03);
+      topPathD = buildWingPointerPath(cx, bodyCy, cfg.rHubTop, 1.0);
+
+      // Iconic white recessed pointer stripe along the front nose + vertical tip bevel
+      const stripeW = 4.2;
+      const stripeTopY = bodyCy - 59.0;
+      const stripeBotY = bodyCy - cfg.rCap - 1.5;
+      topIndicatorSvg = `
+        <rect
+          x="${(cx - stripeW / 2).toFixed(2)}"
+          y="${stripeTopY.toFixed(2)}"
+          width="${stripeW}"
+          height="${(stripeBotY - stripeTopY).toFixed(2)}"
+          rx="1.6"
+          fill="${this._escapeHtml(dotColor)}"
+          stroke="rgba(0,0,0,0.65)"
+          stroke-width="0.6"
+        />
+      `;
+      // Nose vertical stripe highlight in base layer
+      ridgeHighlightsSvg = `
+        <line
+          class="pointer-nose-bevel"
+          x1="${cx}"
+          y1="${(bodyCy - 59.0).toFixed(2)}"
+          x2="${cx}"
+          y2="${(baseCy - 60.5).toFixed(2)}"
+          stroke="${this._escapeHtml(dotColor)}"
+          stroke-width="3.6"
+          stroke-linecap="round"
+          opacity="0.88"
+        />
+      `;
+    } else {
+      basePathD = buildScallopedPath(cx, baseCy, cfg.rBodyBasePeak, cfg.rBodyBaseValley);
+      topPathD = buildScallopedPath(cx, bodyCy, cfg.rBodyTopPeak, cfg.rBodyTopValley);
+      for (let i = 0; i < 6; i++) {
+        ridgeHighlightsSvg += `<line class="ridge-glint" data-lobe="${i}" x1="0" y1="0" x2="0" y2="0" />`;
+      }
+      topIndicatorSvg = `
+        <circle
+          cx="${cx}"
+          cy="${bodyCy - cfg.rDotTop}"
+          r="${cfg.dotTopRadius}"
+          fill="${this._escapeHtml(dotColor)}"
+          stroke="rgba(0,0,0,0.75)"
+          stroke-width="0.7"
+        />
+      `;
     }
 
-    // Cap disc geometry percentages inside the 220x220 viewBox
     const capDiamPct = ((cfg.rCap * 2) / 220) * 100;
     const capLeftPct = ((cx - cfg.rCap) / 220) * 100;
     const capTopPct = ((bodyCy - cfg.rCap) / 220) * 100;
-
-    // SVG size needs extra margin for dial labels (220 viewBox vs knob diameter 136 -> ~1.55x)
     const widgetWidth = Math.round(sizePx * 1.48);
 
     const uid = this._uid;
@@ -867,8 +1009,8 @@ export class MoogKnob extends HTMLElement {
           background:
             repeating-radial-gradient(
               circle at 50% 50%,
-              rgba(255, 255, 255, 0.045) 0px,
-              rgba(0, 0, 0, 0.04) 1px,
+              rgba(255, 255, 255, 0.065) 0px,
+              rgba(0, 0, 0, 0.06) 1px,
               transparent 2px
             ),
             conic-gradient(
@@ -890,8 +1032,8 @@ export class MoogKnob extends HTMLElement {
           background:
             repeating-radial-gradient(
               circle at 50% 50%,
-              rgba(255, 255, 255, 0.04) 0px,
-              rgba(0, 0, 0, 0.04) 1px,
+              rgba(255, 255, 255, 0.06) 0px,
+              rgba(0, 0, 0, 0.06) 1px,
               transparent 2px
             ),
             conic-gradient(
@@ -913,8 +1055,8 @@ export class MoogKnob extends HTMLElement {
           background:
             repeating-radial-gradient(
               circle at 50% 50%,
-              rgba(255, 255, 255, 0.03) 0px,
-              rgba(0, 0, 0, 0.06) 1px,
+              rgba(255, 255, 255, 0.035) 0px,
+              rgba(0, 0, 0, 0.08) 1px,
               transparent 2px
             ),
             conic-gradient(
@@ -936,7 +1078,6 @@ export class MoogKnob extends HTMLElement {
             0 0 0 1px rgba(0, 0, 0, 0.95);
         }
 
-        /* Subtle lathe center dimple */
         .cap-disc::after {
           content: '';
           position: absolute;
@@ -993,14 +1134,12 @@ export class MoogKnob extends HTMLElement {
         >
           <svg class="knob-svg" viewBox="0 0 220 220" aria-hidden="true">
             <defs>
-              <!-- Panel Contact Shadow -->
               <radialGradient id="${uid}-shadow" cx="50%" cy="50%" r="50%">
                 <stop offset="62%" stop-color="#000000" stop-opacity="0.82" />
                 <stop offset="86%" stop-color="#000000" stop-opacity="0.38" />
                 <stop offset="100%" stop-color="#000000" stop-opacity="0" />
               </radialGradient>
 
-              <!-- Glossy Flared Skirt Surface (anchored to studio lighting) -->
               <radialGradient id="${uid}-skirt-grad" cx="38%" cy="34%" r="65%">
                 <stop offset="0%" stop-color="#3c3f45" />
                 <stop offset="45%" stop-color="#191a1d" />
@@ -1008,7 +1147,6 @@ export class MoogKnob extends HTMLElement {
                 <stop offset="100%" stop-color="#1e2024" />
               </radialGradient>
 
-              <!-- Skirt Rim Specular Sheen -->
               <linearGradient id="${uid}-skirt-rim" x1="15%" y1="10%" x2="85%" y2="90%">
                 <stop offset="0%" stop-color="rgba(255,255,255,0.42)" />
                 <stop offset="35%" stop-color="rgba(255,255,255,0.08)" />
@@ -1016,48 +1154,40 @@ export class MoogKnob extends HTMLElement {
                 <stop offset="100%" stop-color="rgba(255,255,255,0.16)" />
               </linearGradient>
 
-              <!-- Scalloped Body Sidewall Gradient -->
               <linearGradient id="${uid}-sidewall" x1="18%" y1="12%" x2="84%" y2="88%">
                 <stop offset="0%" stop-color="#2c2f35" />
                 <stop offset="42%" stop-color="#121316" />
                 <stop offset="100%" stop-color="#060608" />
               </linearGradient>
 
-              <!-- Scalloped Top Face Glossy Bakelite -->
               <linearGradient id="${uid}-topface" x1="20%" y1="12%" x2="82%" y2="88%">
                 <stop offset="0%" stop-color="#35383f" />
                 <stop offset="40%" stop-color="#18191c" />
                 <stop offset="100%" stop-color="#09090b" />
               </linearGradient>
 
-              <!-- Top Edge Highlight -->
               <linearGradient id="${uid}-topedge" x1="15%" y1="10%" x2="85%" y2="90%">
                 <stop offset="0%" stop-color="rgba(255,255,255,0.48)" />
                 <stop offset="42%" stop-color="rgba(255,255,255,0.10)" />
                 <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
               </linearGradient>
 
-              <!-- Body-on-Skirt Ambient Occlusion -->
               <filter id="${uid}-ao" x="-25%" y="-25%" width="150%" height="150%">
                 <feGaussianBlur stdDeviation="3.6" />
               </filter>
             </defs>
 
-            <!-- Scale Ticks & Labels -->
             <g class="dial-scale">${ticksSvg}</g>
 
-            <!-- Optional Hybrid LED Ring Arc -->
             ${
               showArc
-                ? `<path class="arc-track" d="${buildArcPath(cx, cy, cfg.rSkirt + 4, minA, maxA)}" />
+                ? `<path class="arc-track" d="${buildArcPath(cx, cy, cfg.rSkirt + 4, isEndless ? 0 : minA, isEndless ? 359.9 : maxA)}" />
                    <path class="arc-fill" d="" />`
                 : ''
             }
 
-            <!-- Cast Shadow onto Control Panel (offset down-right from top-left light) -->
             <circle cx="${cx + 4}" cy="${cy + 7}" r="${cfg.rSkirt + 10}" fill="url(#${uid}-shadow)" />
 
-            <!-- Flared Black Skirt Base -->
             ${
               cfg.hasSkirt
                 ? `
@@ -1070,7 +1200,6 @@ export class MoogKnob extends HTMLElement {
                 : ''
             }
 
-            <!-- Rotating Skirt Dot (rotates around panel center) -->
             ${
               cfg.skirtDot
                 ? `
@@ -1080,41 +1209,29 @@ export class MoogKnob extends HTMLElement {
                   cy="${cy + 1.5 - cfg.rDotSkirt}"
                   r="${cfg.dotSkirtRadius}"
                   fill="${this._escapeHtml(dotColor)}"
-                  stroke="rgba(0,0,0,0.65)"
-                  stroke-width="0.6"
+                  stroke="rgba(0,0,0,0.75)"
+                  stroke-width="0.7"
                 />
               </g>
             `
                 : ''
             }
 
-            <!-- 3D Extruded Fluted Body Base & Ambient Occlusion (rotates around base center) -->
             <g class="rot-body-base">
-              <path d="${baseScallop}" fill="rgba(0,0,0,0.75)" filter="url(#${uid}-ao)" transform="translate(2, 3)" />
-              <path d="${baseScallop}" fill="url(#${uid}-sidewall)" stroke="#050507" stroke-width="1.1" />
+              <path d="${basePathD}" fill="rgba(0,0,0,0.75)" filter="url(#${uid}-ao)" transform="translate(2, 3)" />
+              <path d="${basePathD}" fill="url(#${uid}-sidewall)" stroke="#050507" stroke-width="1.1" />
+              ${cfg.isWingPointer ? ridgeHighlightsSvg : ''}
             </g>
 
-            <!-- True 2.5D Perspective Sidewall Ridge Glints (occluded by top face when rotated behind) -->
-            <g class="ridge-glints">${ridgeHighlightsSvg}</g>
+            ${!cfg.isWingPointer ? `<g class="ridge-glints">${ridgeHighlightsSvg}</g>` : ''}
 
-            <!-- Fluted Body Top Face & Upper White Indicator Dot (rotates around top center) -->
             <g class="rot-body-top">
-              <path d="${topScallop}" fill="url(#${uid}-topface)" stroke="url(#${uid}-topedge)" stroke-width="1.25" />
-              <!-- Recessed Chamfer around Metal Cap -->
-              <circle cx="${cx}" cy="${bodyCy}" r="${cfg.rCap + 1.6}" fill="#08080a" stroke="rgba(255,255,255,0.12)" stroke-width="0.7" />
-              <!-- Iconic Upper Ridge White Dot -->
-              <circle
-                cx="${cx}"
-                cy="${bodyCy - cfg.rDotTop - (cfg.pointerExtend > 0 ? 3.5 : 0)}"
-                r="${cfg.dotTopRadius}"
-                fill="${this._escapeHtml(dotColor)}"
-                stroke="rgba(0,0,0,0.65)"
-                stroke-width="0.6"
-              />
+              <path d="${topPathD}" fill="url(#${uid}-topface)" stroke="url(#${uid}-topedge)" stroke-width="1.25" />
+              <circle cx="${cx}" cy="${bodyCy}" r="${cfg.rCap + 1.6}" fill="#08080a" stroke="rgba(255,255,255,0.14)" stroke-width="0.7" />
+              ${topIndicatorSvg}
             </g>
           </svg>
 
-          <!-- Spun Radial Brushed Metal Inlay Cap -->
           <div class="cap-disc cap-${capType}" aria-hidden="true"></div>
         </div>
         ${labelPos === 'bottom' ? labelHtml : ''}
@@ -1157,29 +1274,33 @@ export class MoogKnob extends HTMLElement {
       this._rotBodyTopEl.setAttribute('transform', `rotate(${deg.toFixed(2)} ${cx} ${bodyCy})`);
     }
 
-    // Update dynamic 2.5D perspective specular ridge highlights relative to stationary top-left light
-    const knobRad = (deg * Math.PI) / 180;
-    for (let i = 0; i < this._ridgeGlints.length; i++) {
-      const worldTheta = knobRad + (i * Math.PI) / 3 - Math.PI / 2;
-      const rPeakTop = cfg.rBodyTopPeak + (i === 0 ? cfg.pointerExtend : 0);
-      const rPeakBase = cfg.rBodyBasePeak + (i === 0 ? cfg.pointerExtend : 0);
-      const [tx, ty] = polar(cx, bodyCy, rPeakTop - 1.0, worldTheta);
-      const [bx, by] = polar(cx, baseCy, rPeakBase - 1.0, worldTheta);
-      const line = this._ridgeGlints[i];
-      line.setAttribute('x1', tx.toFixed(2));
-      line.setAttribute('y1', ty.toFixed(2));
-      line.setAttribute('x2', bx.toFixed(2));
-      line.setAttribute('y2', by.toFixed(2));
-      const cosLight = Math.cos(worldTheta - LIGHT_ANGLE_RAD);
-      const spec = Math.pow(Math.max(0, cosLight), 2.0) * 0.52 + 0.05;
-      line.setAttribute('opacity', spec.toFixed(3));
+    if (!cfg.isWingPointer && this._ridgeGlints.length) {
+      const knobRad = (deg * Math.PI) / 180;
+      for (let i = 0; i < this._ridgeGlints.length; i++) {
+        const worldTheta = knobRad + (i * Math.PI) / 3 - Math.PI / 2;
+        const [tx, ty] = polar(cx, bodyCy, cfg.rBodyTopPeak - 1.0, worldTheta);
+        const [bx, by] = polar(cx, baseCy, cfg.rBodyBasePeak - 1.0, worldTheta);
+        const line = this._ridgeGlints[i];
+        line.setAttribute('x1', tx.toFixed(2));
+        line.setAttribute('y1', ty.toFixed(2));
+        line.setAttribute('x2', bx.toFixed(2));
+        line.setAttribute('y2', by.toFixed(2));
+        const cosLight = Math.cos(worldTheta - LIGHT_ANGLE_RAD);
+        const spec = Math.pow(Math.max(0, cosLight), 2.0) * 0.52 + 0.05;
+        line.setAttribute('opacity', spec.toFixed(3));
+      }
     }
 
     if (this._arcFillEl) {
-      const minA = this._getMinAngle();
-      const maxA = this._getMaxAngle();
-      const startA = this.bipolar ? (minA + maxA) / 2 : minA;
-      this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, startA, deg));
+      if (this.endless) {
+        const normDeg = (((deg % 360) + 360) % 360);
+        this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, 0, normDeg || 0.01));
+      } else {
+        const minA = this._getMinAngle();
+        const maxA = this._getMaxAngle();
+        const startA = this.bipolar ? (minA + maxA) / 2 : minA;
+        this._arcFillEl.setAttribute('d', buildArcPath(cx, cy, cfg.rSkirt + 4, startA, deg));
+      }
     }
 
     const formatted = this.formattedValue;
