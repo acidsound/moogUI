@@ -17,9 +17,7 @@
       --amber: #f59e0b;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -82,10 +80,7 @@
       letter-spacing: 0.02em;
     }
 
-    .pill-hint strong {
-      color: var(--amber);
-      font-weight: 600;
-    }
+    .pill-hint strong { color: var(--amber); font-weight: 600; }
 
     /* Authentic Walnut + Crinkle Aluminum Minimoog Chassis */
     .synth-chassis {
@@ -93,35 +88,20 @@
       grid-template-columns: 22px 1fr 22px;
       border-radius: 12px;
       overflow: hidden;
-      box-shadow:
-        0 30px 70px rgba(0, 0, 0, 0.8),
-        0 0 0 1px rgba(255, 255, 255, 0.08);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
 
     .wood-cheek {
       background:
-        repeating-linear-gradient(
-          92deg,
-          rgba(0, 0, 0, 0.14) 0px,
-          rgba(0, 0, 0, 0.14) 2px,
-          transparent 2px,
-          transparent 7px
-        ),
+        repeating-linear-gradient(92deg, rgba(0,0,0,0.14) 0px, rgba(0,0,0,0.14) 2px, transparent 2px, transparent 7px),
         linear-gradient(180deg, var(--walnut-light) 0%, var(--walnut-mid) 45%, var(--walnut-dark) 100%);
-      box-shadow:
-        inset 1px 0 2px rgba(255, 255, 255, 0.15),
-        inset -1px 0 3px rgba(0, 0, 0, 0.7);
+      box-shadow: inset 1px 0 2px rgba(255,255,255,0.15), inset -1px 0 3px rgba(0,0,0,0.7);
     }
 
     .synth-faceplate {
       background:
-        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
-        repeating-radial-gradient(
-          circle at 0 0,
-          rgba(255, 255, 255, 0.012) 0,
-          rgba(0, 0, 0, 0.02) 1px,
-          transparent 2px
-        ),
+        radial-gradient(circle at 20% 15%, rgba(255,255,255,0.03) 0%, transparent 50%),
+        repeating-radial-gradient(circle at 0 0, rgba(255,255,255,0.012) 0, rgba(0,0,0,0.02) 1px, transparent 2px),
         linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bottom) 100%);
       padding: 18px 20px 20px;
       border-top: 2px solid #303238;
@@ -175,11 +155,7 @@
       overflow: hidden;
     }
 
-    .scope-box canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
+    .scope-box canvas { width: 100%; height: 100%; display: block; }
 
     .modules-grid {
       display: grid;
@@ -188,9 +164,7 @@
     }
 
     @media (max-width: 980px) {
-      .modules-grid {
-        grid-template-columns: 1fr;
-      }
+      .modules-grid { grid-template-columns: 1fr; }
     }
 
     .synth-module {
@@ -294,11 +268,7 @@
       transform: translateY(2px);
     }
 
-    .key-black-slot {
-      position: relative;
-      width: 0;
-      z-index: 3;
-    }
+    .key-black-slot { position: relative; width: 0; z-index: 3; }
 
     .key-black {
       position: absolute;
@@ -358,10 +328,7 @@
       color: #f4f1e8;
     }
 
-    .playground-header span {
-      font-size: 12px;
-      color: var(--silkscreen-dim);
-    }
+    .playground-header span { font-size: 12px; color: var(--silkscreen-dim); }
 
     .gallery-strip {
       display: grid;
@@ -403,6 +370,39 @@
       padding: 8px 0;
     }
 
+    /* Tab Bar for Multi-Component Interactive Inspector */
+    .inspector-tabs {
+      display: inline-flex;
+      gap: 6px;
+      background: #090a0c;
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tab-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--silkscreen-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+
+    .tab-btn:hover { color: #f4f1e8; }
+
+    .tab-btn.is-active {
+      background: linear-gradient(180deg, #272930 0%, #181a1f 100%);
+      border-color: rgba(245, 158, 11, 0.55);
+      color: #fbbf24;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
     .playground-grid {
       display: grid;
       grid-template-columns: 280px 1fr;
@@ -411,9 +411,7 @@
     }
 
     @media (max-width: 820px) {
-      .playground-grid {
-        grid-template-columns: 1fr;
-      }
+      .playground-grid { grid-template-columns: 1fr; }
     }
 
     .preview-stage {
@@ -437,6 +435,8 @@
       gap: 12px;
     }
 
+    .controls-panel[hidden] { display: none; }
+
     .ctrl-group {
       display: flex;
       flex-direction: column;
@@ -453,7 +453,8 @@
     }
 
     .ctrl-group select,
-    .ctrl-group input[type="text"] {
+    .ctrl-group input[type="text"],
+    .ctrl-group input[type="number"] {
       background: #0a0b0d;
       color: #f4f1e8;
       border: 1px solid rgba(255, 255, 255, 0.14);
@@ -461,6 +462,11 @@
       padding: 7px 10px;
       font-size: 12.5px;
       font-family: inherit;
+    }
+
+    .ctrl-group input[type="range"] {
+      accent-color: var(--amber);
+      margin-top: 6px;
     }
 
     .toggle-row {
@@ -484,21 +490,16 @@
       cursor: pointer;
     }
 
-    .chk-pill input {
-      accent-color: var(--amber);
-    }
+    .chk-pill input { accent-color: var(--amber); }
 
     .code-and-log {
-      grid-column: 1 / -1;
       display: grid;
       grid-template-columns: 1.2fr 1fr;
       gap: 14px;
     }
 
     @media (max-width: 820px) {
-      .code-and-log {
-        grid-template-columns: 1fr;
-      }
+      .code-and-log { grid-template-columns: 1fr; }
     }
 
     .code-box,
@@ -537,29 +538,19 @@
       cursor: pointer;
     }
 
-    .copy-btn:hover {
-      border-color: var(--amber);
-    }
+    .copy-btn:hover { border-color: var(--amber); }
 
     .log-entries {
-      max-height: 115px;
+      max-height: 120px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 3px;
     }
 
-    .log-line {
-      white-space: nowrap;
-    }
-
-    .log-type-input {
-      color: #fbbf24;
-    }
-
-    .log-type-change {
-      color: #34d399;
-    }
+    .log-line { white-space: nowrap; }
+    .log-type-input { color: #fbbf24; }
+    .log-type-change { color: #34d399; }
   </style>
 </head>
 <body>
@@ -567,7 +558,7 @@
     <header class="hero-bar">
       <div class="hero-title">
         <h1>Minimoog Model D Web UI Kit — &lt;moog-knob&gt; · &lt;moog-switch&gt; · &lt;moog-led&gt;</h1>
-        <p>스캘럽드 대형 노브, 무한 로터리 인코더(Endless), 윙 포인터 노브(Pointer), 로커/토글 스위치 &amp; 쥬얼 LED 컴포넌트</p>
+        <p>스캘럽드 대형 노브, 무한 로터리 인코더(Endless), 윙 포인터 노브(Pointer), 백라이트 로커/토글 스위치 &amp; 쥬얼 LED 컴포넌트</p>
       </div>
       <div class="hero-badges">
         <span class="pill-hint"><strong>Drag</strong> 상하/원형 회전</span>
@@ -781,8 +772,8 @@
     <!-- New Variants, Endless Encoders, Switches & LEDs Gallery -->
     <section class="playground-card" aria-label="Component Variants Gallery">
       <div class="playground-header">
-        <h2>Knob Variants · Endless Rotary Encoders · Switches &amp; LEDs</h2>
-        <span>무한 회전 인코더(endless), 윙 포인터 노브(pointer), 로커/토글 스위치, 쥬얼/플랫 LED 쇼케이스</span>
+        <h2>Knob Variants · Endless Rotary Encoders · Illuminated Switches &amp; LEDs</h2>
+        <span>무한 회전 인코더(endless), 윙 포인터 노브(pointer), ON LED 백라이트 로커/토글 스위치, 쥬얼/플랫 LED 쇼케이스</span>
       </div>
 
       <div class="gallery-strip">
@@ -852,21 +843,29 @@
             <moog-led id="demoLed3" label="LOCK" color="blue" variant="jewel" size="md" on></moog-led>
           </div>
           <div class="tile-caption">
-            <code>&lt;moog-switch&gt;</code> (Rocker / Toggle) &amp; <code>&lt;moog-led&gt;</code>
+            <code>&lt;moog-switch&gt;</code> (ON 백라이트 · 센터 락 토글) &amp; <code>&lt;moog-led&gt;</code>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Reusable Component Playground -->
-    <section class="playground-card" aria-label="Component Playground">
+    <!-- Multi-Component Interactive Playground & Live API Inspector -->
+    <section class="playground-card" aria-label="Interactive Component Inspector">
       <div class="playground-header">
-        <h2>Interactive &lt;moog-knob&gt; Playground &amp; Live API Inspector</h2>
-        <span>모든 노브 스타일과 무한 회전(Endless) 모드를 직접 조작하고 HTML 마크업을 복사하세요</span>
+        <div>
+          <h2>Interactive Component Inspector</h2>
+          <span>노브 · 스위치 · LED 컴포넌트 속성을 실시간으로 테스트하고 HTML 마크업을 복사하세요</span>
+        </div>
+        <div class="inspector-tabs" role="tablist">
+          <button class="tab-btn is-active" type="button" role="tab" data-tab="knob">&lt;moog-knob&gt;</button>
+          <button class="tab-btn" type="button" role="tab" data-tab="switch">&lt;moog-switch&gt;</button>
+          <button class="tab-btn" type="button" role="tab" data-tab="led">&lt;moog-led&gt;</button>
+        </div>
       </div>
 
       <div class="playground-grid">
-        <div class="preview-stage">
+        <!-- Live Preview Stage -->
+        <div id="previewStage" class="preview-stage">
           <moog-knob
             id="pgKnob"
             label="CUSTOM KNOB"
@@ -879,85 +878,214 @@
             value="5"
             scale-labels="0,2,4,6,8,10"
           ></moog-knob>
+
+          <moog-switch
+            id="pgSwitch"
+            label="FILTER MOD"
+            variant="rocker"
+            color="orange"
+            size="lg"
+            on-label="ON"
+            off-label="OFF"
+            checked
+            hidden
+          ></moog-switch>
+
+          <moog-led
+            id="pgLed"
+            label="OVERLOAD"
+            variant="jewel"
+            color="amber"
+            bezel="black"
+            size="lg"
+            intensity="1"
+            on
+            hidden
+          ></moog-led>
         </div>
 
-        <div class="controls-panel">
-          <div class="ctrl-group">
-            <label for="pgVariant">Variant (노브 스타일)</label>
-            <select id="pgVariant">
-              <option value="large">large (Model D Large Scalloped)</option>
-              <option value="pointer" selected>pointer (Winged Pointer Knob)</option>
-              <option value="skirtless">skirtless (LFO Skirtless)</option>
-            </select>
-          </div>
-
-          <div class="ctrl-group">
-            <label for="pgCap">Cap Finish (메탈 캡)</label>
-            <select id="pgCap">
-              <option value="silver" selected>silver (Brushed Aluminum)</option>
-              <option value="brass">brass (Vintage Gold/Brass)</option>
-              <option value="black">black (Stealth Anodized)</option>
-            </select>
-          </div>
-
-          <div class="ctrl-group">
-            <label for="pgSize">Size (크기)</label>
-            <select id="pgSize">
-              <option value="sm">sm (72px)</option>
-              <option value="md">md (98px)</option>
-              <option value="lg" selected>lg (126px)</option>
-              <option value="xl">xl (162px)</option>
-            </select>
-          </div>
-
-          <div class="ctrl-group">
-            <label for="pgDragMode">Drag Mode (드래그 방식)</label>
-            <select id="pgDragMode">
-              <option value="vertical" selected>vertical (상하 드래그)</option>
-              <option value="circular">circular (원형 각도 추적)</option>
-            </select>
-          </div>
-
-          <div class="ctrl-group">
-            <label for="pgDotColor">Dot / Stripe Color</label>
-            <select id="pgDotColor">
-              <option value="#f3f3ef" selected>Ivory White (#f3f3ef)</option>
-              <option value="#f472b6">Moog Pink (#f472b6)</option>
-              <option value="#f59e0b">Amber (#f59e0b)</option>
-              <option value="#38bdf8">Cyan (#38bdf8)</option>
-            </select>
-          </div>
-
-          <div class="ctrl-group">
-            <label for="pgLabel">Label (라벨 텍스트)</label>
-            <input id="pgLabel" type="text" value="CUSTOM KNOB" />
-          </div>
-
-          <div class="toggle-row">
-            <label class="chk-pill"><input id="pgEndless" type="checkbox" /> endless (무한 회전)</label>
-            <label class="chk-pill"><input id="pgWrap" type="checkbox" /> wrap (0..360° 순환)</label>
-            <label class="chk-pill"><input id="pgBipolar" type="checkbox" /> bipolar (-5..+5)</label>
-            <label class="chk-pill"><input id="pgDetents" type="checkbox" /> detents (스위치 스냅)</label>
-            <label class="chk-pill"><input id="pgArc" type="checkbox" /> show-arc (LED 링)</label>
-            <label class="chk-pill"><input id="pgDisabled" type="checkbox" /> disabled</label>
-          </div>
-
-          <div class="code-and-log">
-            <div class="code-box">
-              <div class="box-head">
-                <span>Generated HTML Markup</span>
-                <button id="copySnippetBtn" class="copy-btn" type="button">Copy</button>
-              </div>
-              <pre id="snippetOut" style="margin:0;white-space:pre-wrap;"></pre>
+        <div>
+          <!-- KNOB CONTROLS -->
+          <div id="panel-knob" class="controls-panel">
+            <div class="ctrl-group">
+              <label for="pgVariant">Variant (노브 스타일)</label>
+              <select id="pgVariant">
+                <option value="large">large (Model D Large Scalloped)</option>
+                <option value="pointer" selected>pointer (Winged Pointer Knob)</option>
+                <option value="skirtless">skirtless (LFO Skirtless)</option>
+              </select>
             </div>
-
-            <div class="log-box">
-              <div class="box-head">
-                <span>Live DOM Events (input / change)</span>
-                <button id="clearLogBtn" class="copy-btn" type="button">Clear</button>
-              </div>
-              <div id="eventLog" class="log-entries"></div>
+            <div class="ctrl-group">
+              <label for="pgCap">Cap Finish (메탈 캡)</label>
+              <select id="pgCap">
+                <option value="silver" selected>silver (Brushed Aluminum)</option>
+                <option value="brass">brass (Vintage Gold/Brass)</option>
+                <option value="black">black (Stealth Anodized)</option>
+              </select>
             </div>
+            <div class="ctrl-group">
+              <label for="pgSize">Size (크기)</label>
+              <select id="pgSize">
+                <option value="sm">sm (72px)</option>
+                <option value="md">md (98px)</option>
+                <option value="lg" selected>lg (126px)</option>
+                <option value="xl">xl (162px)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="pgDragMode">Drag Mode (드래그 방식)</label>
+              <select id="pgDragMode">
+                <option value="vertical" selected>vertical (상하 드래그)</option>
+                <option value="circular">circular (원형 각도 추적)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="pgDotColor">Dot / Stripe Color</label>
+              <select id="pgDotColor">
+                <option value="#f3f3ef" selected>Ivory White (#f3f3ef)</option>
+                <option value="#f472b6">Moog Pink (#f472b6)</option>
+                <option value="#f59e0b">Amber (#f59e0b)</option>
+                <option value="#38bdf8">Cyan (#38bdf8)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="pgLabel">Label (라벨 텍스트)</label>
+              <input id="pgLabel" type="text" value="CUSTOM KNOB" />
+            </div>
+            <div class="toggle-row">
+              <label class="chk-pill"><input id="pgEndless" type="checkbox" /> endless (무한 회전)</label>
+              <label class="chk-pill"><input id="pgWrap" type="checkbox" /> wrap (0..360° 순환)</label>
+              <label class="chk-pill"><input id="pgBipolar" type="checkbox" /> bipolar (-5..+5)</label>
+              <label class="chk-pill"><input id="pgDetents" type="checkbox" /> detents (스위치 스냅)</label>
+              <label class="chk-pill"><input id="pgArc" type="checkbox" /> show-arc (LED 링)</label>
+              <label class="chk-pill"><input id="pgDisabled" type="checkbox" /> disabled</label>
+            </div>
+          </div>
+
+          <!-- SWITCH CONTROLS -->
+          <div id="panel-switch" class="controls-panel" hidden>
+            <div class="ctrl-group">
+              <label for="swVariant">Variant (스위치 형태)</label>
+              <select id="swVariant">
+                <option value="rocker" selected>rocker (Model D 3D Rocker)</option>
+                <option value="toggle">toggle (Chrome Bat Toggle)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="swColor">Color (색상 &amp; 백라이트)</label>
+              <select id="swColor">
+                <option value="orange" selected>orange (Moog Burnt Orange)</option>
+                <option value="blue">blue (Moog Slate Blue)</option>
+                <option value="red">red (Crimson Red)</option>
+                <option value="ivory">ivory (Vintage Ivory)</option>
+                <option value="dark">dark (Stealth Black)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="swOrientation">Orientation (배치 방향)</label>
+              <select id="swOrientation">
+                <option value="vertical" selected>vertical (상하)</option>
+                <option value="horizontal">horizontal (좌우)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="swSize">Size (크기)</label>
+              <select id="swSize">
+                <option value="sm">sm</option>
+                <option value="md">md</option>
+                <option value="lg" selected>lg</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="swLabel">Label</label>
+              <input id="swLabel" type="text" value="FILTER MOD" />
+            </div>
+            <div class="ctrl-group">
+              <label for="swOnLabel">ON / OFF Tag</label>
+              <div style="display:flex;gap:6px;">
+                <input id="swOnLabel" type="text" value="ON" style="width:50%;" />
+                <input id="swOffLabel" type="text" value="OFF" style="width:50%;" />
+              </div>
+            </div>
+            <div class="toggle-row">
+              <label class="chk-pill"><input id="swChecked" type="checkbox" checked /> checked (ON 상태)</label>
+              <label class="chk-pill"><input id="swBacklight" type="checkbox" checked /> backlight (ON LED 백라이트)</label>
+              <label class="chk-pill"><input id="swDisabled" type="checkbox" /> disabled</label>
+            </div>
+          </div>
+
+          <!-- LED CONTROLS -->
+          <div id="panel-led" class="controls-panel" hidden>
+            <div class="ctrl-group">
+              <label for="ledVariant">Variant (LED 형태)</label>
+              <select id="ledVariant">
+                <option value="jewel" selected>jewel (Faceted Pilot Lamp)</option>
+                <option value="flat">flat (5mm Panel Diode)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="ledColor">Color (발광 색상)</label>
+              <select id="ledColor">
+                <option value="amber" selected>amber (Minimoog Overload)</option>
+                <option value="red">red (Power / Clip)</option>
+                <option value="green">green (Sync / Ready)</option>
+                <option value="blue">blue (MIDI / Lock)</option>
+                <option value="pink">pink (Accent)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="ledBezel">Bezel (베젤 마감)</label>
+              <select id="ledBezel">
+                <option value="black" selected>black (Anodized)</option>
+                <option value="chrome">chrome (Brushed Steel)</option>
+                <option value="brass">brass (Vintage Brass)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="ledSize">Size (크기)</label>
+              <select id="ledSize">
+                <option value="sm">sm (14px)</option>
+                <option value="md">md (20px)</option>
+                <option value="lg" selected>lg (28px)</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label for="ledLabel">Label &amp; Position</label>
+              <div style="display:flex;gap:6px;">
+                <input id="ledLabel" type="text" value="OVERLOAD" style="width:60%;" />
+                <select id="ledLabelPos" style="width:40%;">
+                  <option value="top" selected>top</option>
+                  <option value="bottom">bottom</option>
+                  <option value="right">right</option>
+                </select>
+              </div>
+            </div>
+            <div class="ctrl-group">
+              <label for="ledIntensity">Intensity (<span id="ledIntVal">1.00</span>)</label>
+              <input id="ledIntensity" type="range" min="0" max="1" step="0.05" value="1" />
+            </div>
+            <div class="toggle-row">
+              <label class="chk-pill"><input id="ledOn" type="checkbox" checked /> on (점등)</label>
+              <label class="chk-pill"><input id="ledBlink" type="checkbox" /> blink (450ms 점멸)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-and-log" style="grid-column: 1 / -1;">
+          <div class="code-box">
+            <div class="box-head">
+              <span>Generated HTML Markup</span>
+              <button id="copySnippetBtn" class="copy-btn" type="button">Copy</button>
+            </div>
+            <pre id="snippetOut" style="margin:0;white-space:pre-wrap;"></pre>
+          </div>
+
+          <div class="log-box">
+            <div class="box-head">
+              <span>Live DOM Events &amp; State</span>
+              <button id="clearLogBtn" class="copy-btn" type="button">Clear</button>
+            </div>
+            <div id="eventLog" class="log-entries"></div>
           </div>
         </div>
       </div>
@@ -2308,8 +2436,10 @@ registerMoogKnob('moog-knob');
  * <moog-switch> — Reusable Minimoog Model D Style Rocker & Toggle Switch Component
  *
  * Variants:
- *  - variant="rocker" : Iconic Minimoog Model D angled 3D rocker paddle (orange / blue / red / ivory / dark)
- *  - variant="toggle" : Classic metallic bat-handle toggle switch with hex mounting nut
+ *  - variant="rocker" : Iconic Minimoog Model D 3D illuminated rocker paddle
+ *  - variant="toggle" : Classic metallic bat-handle toggle switch with center-locked ball pivot
+ *
+ * Includes built-in ON LED backlight illumination (disable with backlight="false").
  *
  * @example
  * <moog-switch label="FILTER MOD" color="orange" checked></moog-switch>
@@ -2320,38 +2450,48 @@ registerMoogKnob('moog-knob');
 const SWITCH_COLORS = {
   orange: {
     base: '#c94718',
-    lit: '#f0642b',
+    lit: '#f97316',
     dark: '#7c280a',
-    edge: '#ff8a54',
-    text: '#fff4ec',
+    edge: '#ff9d66',
+    glow: '249, 115, 22',
+    ledCore: '#fff3d6',
+    ledBright: '#fb923c',
   },
   blue: {
     base: '#436270',
     lit: '#5b8191',
     dark: '#253841',
     edge: '#82a7b8',
-    text: '#eef6fa',
+    glow: '56, 189, 248',
+    ledCore: '#e0f7ff',
+    ledBright: '#38bdf8',
   },
   red: {
     base: '#b91c1c',
-    lit: '#e12d2d',
+    lit: '#ef4444',
     dark: '#6e1010',
-    edge: '#f87171',
-    text: '#fff1f2',
+    edge: '#fca5a5',
+    glow: '239, 68, 68',
+    ledCore: '#ffe4e6',
+    ledBright: '#f87171',
   },
   ivory: {
     base: '#cfc9b8',
     lit: '#eae4d3',
     dark: '#7a7466',
     edge: '#fbf8f0',
-    text: '#1f1d18',
+    glow: '245, 158, 11',
+    ledCore: '#fffbeb',
+    ledBright: '#fbbf24',
   },
   dark: {
     base: '#27292e',
     lit: '#3b3e45',
     dark: '#111215',
     edge: '#565a63',
-    text: '#e8e6df',
+    glow: '245, 158, 11',
+    ledCore: '#fef3c7',
+    ledBright: '#f59e0b',
   },
 };
 
@@ -2371,6 +2511,8 @@ class MoogSwitch extends HTMLElement {
       'off-label',
       'variant',
       'color',
+      'led-color',
+      'backlight',
       'orientation',
       'size',
       'disabled',
@@ -2423,6 +2565,14 @@ class MoogSwitch extends HTMLElement {
     return this._checked
       ? this.getAttribute('on-label') || 'ON'
       : this.getAttribute('off-label') || 'OFF';
+  }
+
+  get backlight() {
+    return this.getAttribute('backlight') !== 'false';
+  }
+  set backlight(flag) {
+    if (flag) this.removeAttribute('backlight');
+    else this.setAttribute('backlight', 'false');
   }
 
   get disabled() {
@@ -2478,6 +2628,10 @@ class MoogSwitch extends HTMLElement {
     const isVert = this.getAttribute('orientation') !== 'horizontal';
     const scale = SWITCH_SIZES[this.getAttribute('size')] || 1;
     const palette = SWITCH_COLORS[this.getAttribute('color')] || SWITCH_COLORS.orange;
+    const customLed = this.getAttribute('led-color');
+    const ledCore = customLed ? '#ffffff' : palette.ledCore;
+    const ledBright = customLed || palette.ledBright;
+    const hasBacklight = this.backlight;
 
     const labelHtml = label ? `<div class="sw-label">${this._esc(label)}</div>` : '';
 
@@ -2487,6 +2641,8 @@ class MoogSwitch extends HTMLElement {
           <span class="state-tag tag-on">${this._esc(onLabel)}</span>
           <button class="rocker-housing vertical" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
             <span class="rocker-paddle">
+              <span class="paddle-backlight"></span>
+              <span class="paddle-led-slit"></span>
               <span class="paddle-ridge"></span>
             </span>
           </button>
@@ -2498,6 +2654,8 @@ class MoogSwitch extends HTMLElement {
           <span class="state-tag tag-off">${this._esc(offLabel)}</span>
           <button class="rocker-housing horizontal" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
             <span class="rocker-paddle">
+              <span class="paddle-backlight"></span>
+              <span class="paddle-led-slit"></span>
               <span class="paddle-ridge"></span>
             </span>
           </button>
@@ -2506,16 +2664,20 @@ class MoogSwitch extends HTMLElement {
       `;
 
     const toggleBodyHtml = `
-      <div class="toggle-wrap">
-        <span class="state-tag tag-on">${this._esc(onLabel)}</span>
-        <button class="toggle-housing" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+      <div class="toggle-wrap ${isVert ? 'vertical' : 'horizontal'}">
+        <span class="state-tag tag-on">${this._esc(isVert ? onLabel : offLabel)}</span>
+        <button class="toggle-housing ${isVert ? 'vertical' : 'horizontal'}" type="button" role="switch" aria-checked="${this._checked}" aria-label="${this._esc(label || onLabel)}">
+          <span class="toggle-led-ring"></span>
           <span class="hex-nut"></span>
           <span class="toggle-well"></span>
-          <span class="bat-arm">
-            <span class="bat-tip"></span>
+          <span class="pivot-ball"></span>
+          <span class="bat-pivot-stage">
+            <span class="bat-arm">
+              <span class="bat-tip"></span>
+            </span>
           </span>
         </button>
-        <span class="state-tag tag-off">${this._esc(offLabel)}</span>
+        <span class="state-tag tag-off">${this._esc(isVert ? offLabel : onLabel)}</span>
       </div>
     `;
 
@@ -2529,8 +2691,8 @@ class MoogSwitch extends HTMLElement {
           -webkit-user-select: none;
           vertical-align: middle;
           --moog-label-color: #e8e6df;
-          --moog-tag-color: rgba(232, 230, 223, 0.58);
-          --moog-tag-active: #f59e0b;
+          --moog-tag-color: rgba(232, 230, 223, 0.56);
+          --moog-tag-active: ${ledBright};
           font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
         }
         :host([disabled]) {
@@ -2559,10 +2721,10 @@ class MoogSwitch extends HTMLElement {
           align-items: center;
           gap: 5px;
         }
-        .rocker-wrap.vertical, .toggle-wrap {
+        .rocker-wrap.vertical, .toggle-wrap.vertical {
           flex-direction: column;
         }
-        .rocker-wrap.horizontal {
+        .rocker-wrap.horizontal, .toggle-wrap.horizontal {
           flex-direction: row;
         }
         .state-tag {
@@ -2571,16 +2733,27 @@ class MoogSwitch extends HTMLElement {
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: var(--moog-tag-color);
-          transition: color 120ms ease;
+          transition: color 120ms ease, text-shadow 120ms ease;
         }
         :host([checked]) .tag-on {
           color: var(--moog-tag-active);
+          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
         }
         :host(:not([checked])) .tag-off {
           color: #e8e6df;
         }
+        /* Swap tag highlight if toggle is horizontal (left=off, right=on) */
+        .toggle-wrap.horizontal .tag-on { color: var(--moog-tag-color); text-shadow: none; }
+        .toggle-wrap.horizontal .tag-off { color: var(--moog-tag-color); text-shadow: none; }
+        :host([checked]) .toggle-wrap.horizontal .tag-off {
+          color: var(--moog-tag-active);
+          ${hasBacklight ? `text-shadow: 0 0 8px rgba(${palette.glow}, 0.6);` : ''}
+        }
+        :host(:not([checked])) .toggle-wrap.horizontal .tag-on {
+          color: #e8e6df;
+        }
 
-        /* ---- Minimoog 3D Rocker Paddle ---- */
+        /* ---- Minimoog 3D Illuminated Rocker Paddle ---- */
         .rocker-housing {
           appearance: none;
           border: 1.5px solid #040406;
@@ -2594,6 +2767,7 @@ class MoogSwitch extends HTMLElement {
             0 3px 8px rgba(0, 0, 0, 0.75),
             0 0 0 1px rgba(255, 255, 255, 0.12),
             inset 0 2px 5px rgba(0, 0, 0, 0.9);
+          transition: box-shadow 140ms ease;
         }
         .rocker-housing.vertical {
           width: 28px;
@@ -2603,9 +2777,21 @@ class MoogSwitch extends HTMLElement {
           width: 46px;
           height: 28px;
         }
+        ${
+          hasBacklight
+            ? `
+        .rocker-housing[aria-checked="true"] {
+          box-shadow:
+            0 3px 8px rgba(0, 0, 0, 0.75),
+            0 0 14px rgba(${palette.glow}, 0.45),
+            0 0 0 1px rgba(${palette.glow}, 0.55),
+            inset 0 2px 5px rgba(0, 0, 0, 0.9);
+        }`
+            : ''
+        }
         .rocker-housing:focus-visible,
         .toggle-housing:focus-visible {
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.8), 0 0 12px rgba(245, 158, 11, 0.4);
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.85), 0 0 12px rgba(245, 158, 11, 0.45);
         }
 
         .rocker-paddle {
@@ -2617,19 +2803,19 @@ class MoogSwitch extends HTMLElement {
           border-radius: 2.5px;
           position: relative;
           overflow: hidden;
-          transition: background 140ms ease, box-shadow 140ms ease, transform 120ms ease;
+          transition: background 140ms ease, box-shadow 140ms ease;
         }
 
         .rocker-housing.vertical .rocker-paddle {
           background: linear-gradient(180deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
           box-shadow:
             inset 0 -5px 8px rgba(0, 0, 0, 0.52),
-            inset 0 2px 3px rgba(255, 255, 255, 0.25);
+            inset 0 2px 3px rgba(255, 255, 255, 0.22);
         }
         .rocker-housing.vertical[aria-checked="true"] .rocker-paddle {
           background: linear-gradient(180deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
           box-shadow:
-            inset 0 5px 8px rgba(0, 0, 0, 0.45),
+            inset 0 5px 8px rgba(0, 0, 0, 0.42),
             inset 0 -2px 3px rgba(255, 255, 255, 0.28);
         }
 
@@ -2637,90 +2823,212 @@ class MoogSwitch extends HTMLElement {
           background: linear-gradient(90deg, ${palette.lit} 0%, ${palette.base} 54%, ${palette.dark} 100%);
           box-shadow:
             inset 5px 0 8px rgba(0, 0, 0, 0.45),
-            inset -2px 0 3px rgba(255, 255, 255, 0.25);
+            inset -2px 0 3px rgba(255, 255, 255, 0.22);
         }
         .rocker-housing.horizontal[aria-checked="true"] .rocker-paddle {
           background: linear-gradient(90deg, ${palette.dark} 0%, ${palette.base} 46%, ${palette.lit} 100%);
           box-shadow:
-            inset -5px 0 8px rgba(0, 0, 0, 0.45),
+            inset -5px 0 8px rgba(0, 0, 0, 0.42),
             inset 2px 0 3px rgba(255, 255, 255, 0.28);
+        }
+
+        /* Internal Translucent LED Backlight Overlay */
+        .paddle-backlight {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 120ms ease;
+        }
+        .rocker-housing.vertical .paddle-backlight {
+          background: radial-gradient(circle at 50% 24%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
+        }
+        .rocker-housing.horizontal .paddle-backlight {
+          background: radial-gradient(circle at 76% 50%, ${ledCore} 0%, ${ledBright} 38%, transparent 78%);
+        }
+        ${
+          hasBacklight
+            ? `.rocker-housing[aria-checked="true"] .paddle-backlight { opacity: 0.72; }`
+            : ''
+        }
+
+        /* Crisp Illuminated LED Pip / Lens Slit on the ON side */
+        .paddle-led-slit {
+          position: absolute;
+          border-radius: 999px;
+          pointer-events: none;
+          background: rgba(0, 0, 0, 0.36);
+          border: 1px solid rgba(0, 0, 0, 0.45);
+          transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+        }
+        .rocker-housing.vertical .paddle-led-slit {
+          width: 11px;
+          height: 3.5px;
+          top: 5px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        .rocker-housing.horizontal .paddle-led-slit {
+          width: 3.5px;
+          height: 11px;
+          right: 5px;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+        ${
+          hasBacklight
+            ? `
+        .rocker-housing[aria-checked="true"] .paddle-led-slit {
+          background: ${ledCore};
+          border-color: ${ledBright};
+          box-shadow: 0 0 8px ${ledBright}, 0 0 14px rgba(${palette.glow}, 0.95);
+        }`
+            : ''
         }
 
         .paddle-ridge {
           position: absolute;
           background: linear-gradient(90deg, rgba(0,0,0,0.28), ${palette.edge}, rgba(0,0,0,0.28));
-          opacity: 0.72;
+          opacity: 0.65;
           border-radius: 1px;
         }
         .rocker-housing.vertical .paddle-ridge {
           width: 82%;
-          height: 3px;
+          height: 2.5px;
           top: 50%;
           transform: translateY(-50%);
         }
         .rocker-housing.horizontal .paddle-ridge {
-          width: 3px;
+          width: 2.5px;
           height: 82%;
           left: 50%;
           transform: translateX(-50%);
         }
 
-        /* ---- Vintage Chrome Bat Toggle Switch ---- */
+        /* ---- Vintage Chrome Bat Toggle Switch (Center-Locked Pivot) ---- */
         .toggle-housing {
           appearance: none;
           border: none;
           background: transparent;
-          width: 36px;
-          height: 46px;
+          width: 44px;
+          height: 54px;
           padding: 0;
           cursor: pointer;
           outline: none;
           position: relative;
           display: grid;
           place-items: center;
+          border-radius: 8px;
         }
-        .hex-nut {
-          width: 26px;
-          height: 26px;
-          background: linear-gradient(135deg, #d7dce2 0%, #7d858e 55%, #b5bcc4 100%);
-          clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-          box-shadow: 0 3px 6px rgba(0,0,0,0.85);
-          position: relative;
+        .toggle-housing.horizontal {
+          transform: rotate(90deg);
         }
-        .toggle-well {
-          position: absolute;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: radial-gradient(circle, #060608 55%, #3c4047 100%);
-          border: 1.5px solid #22252a;
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.95);
-        }
-        .bat-arm {
+
+        /* Illuminated Backlight Ring under Hex Nut when ON */
+        .toggle-led-ring {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 8px;
+          width: 30px;
+          height: 30px;
+          margin-left: -15px;
+          margin-top: -15px;
+          border-radius: 50%;
+          pointer-events: none;
+          opacity: 0;
+          background: radial-gradient(circle, rgba(${palette.glow}, 0.85) 35%, rgba(${palette.glow}, 0) 75%);
+          filter: blur(2px);
+          transition: opacity 120ms ease;
+        }
+        ${
+          hasBacklight
+            ? `.toggle-housing[aria-checked="true"] .toggle-led-ring { opacity: 0.95; }`
+            : ''
+        }
+
+        .hex-nut {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 26px;
+          height: 26px;
+          margin-left: -13px;
+          margin-top: -13px;
+          background: linear-gradient(135deg, #d7dce2 0%, #7d858e 55%, #b5bcc4 100%);
+          clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+          filter: drop-shadow(0 3px 5px rgba(0,0,0,0.85));
+        }
+
+        .toggle-well {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 15px;
+          height: 15px;
+          margin-left: -7.5px;
+          margin-top: -7.5px;
+          border-radius: 50%;
+          background: radial-gradient(circle, #050507 52%, #3c4047 100%);
+          border: 1.5px solid #1e2024;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.95);
+        }
+
+        /* Fixed center ball-joint at exact (50%, 50%) */
+        .pivot-ball {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 10px;
+          height: 10px;
+          margin-left: -5px;
+          margin-top: -5px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 32%, #f8fafc 0%, #94a3b8 55%, #334155 100%);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.9);
+          z-index: 2;
+        }
+
+        /* Bat handle anchored strictly at (50%, 50%) — flips vertically in Z-plane with zero center drift */
+        .bat-pivot-stage {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 0;
+          height: 0;
+          z-index: 3;
+          perspective: 140px;
+          pointer-events: none;
+        }
+
+        .bat-arm {
+          position: absolute;
+          left: -4.5px;
+          top: -22px;
+          width: 9px;
           height: 22px;
-          margin-left: -4px;
-          border-radius: 4px;
-          background: linear-gradient(90deg, #646b73 0%, #f1f5f9 38%, #9aa2ab 75%, #474d54 100%);
+          border-radius: 4.5px 4.5px 3px 3px;
+          background: linear-gradient(90deg, #525860 0%, #f1f5f9 36%, #9aa2ab 76%, #3f454d 100%);
           box-shadow: 0 3px 6px rgba(0,0,0,0.75);
-          transform-origin: center 18px;
-          transition: transform 130ms cubic-bezier(0.25, 0.9, 0.35, 1.15);
-          transform: translateY(-4px) rotate(180deg) scaleY(0.95);
+          transform-origin: 50% 22px;
+          /* Flip down around exact base pivot (50%, 22px) -> sits dead-center at (0, 0) = (50%, 50%) */
+          transform: rotateX(158deg);
+          /* Fast late-accelerating snap, zero overshoot/wobble */
+          transition: transform 95ms cubic-bezier(0.22, 1, 0.36, 1);
         }
+
         .toggle-housing[aria-checked="true"] .bat-arm {
-          transform: translateY(-21px) rotate(0deg) scaleY(1);
+          transform: rotateX(22deg);
         }
+
         .bat-tip {
           position: absolute;
-          top: 0;
+          top: -1px;
           left: -1px;
-          width: 10px;
-          height: 8px;
-          border-radius: 5px;
-          background: radial-gradient(circle at 35% 30%, #ffffff 0%, #b8c0c8 60%, #5c636b 100%);
+          width: 11px;
+          height: 9px;
+          border-radius: 5.5px;
+          background: radial-gradient(circle at 38% 35%, #ffffff 0%, #cbd5e1 55%, #475569 100%);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
       </style>
 
@@ -3065,7 +3373,7 @@ registerMoogLed('moog-led');
 
   </script>
 
-  <!-- 2. Real-time Web Audio Minimoog Engine + Gallery + Playground Logic -->
+  <!-- 2. Real-time Web Audio Minimoog Engine + Gallery + Multi-Component Inspector -->
   <script>
     (() => {
       const kCutoff = document.getElementById('kCutoff');
@@ -3416,15 +3724,56 @@ registerMoogLed('moog-led');
         document.getElementById('demoLed1').on = e.detail.checked;
       });
       document.getElementById('demoSw2').addEventListener('change', (e) => {
-        const led2 = document.getElementById('demoLed2');
-        led2.on = e.detail.checked;
+        document.getElementById('demoLed2').on = e.detail.checked;
       });
       document.getElementById('demoSw3').addEventListener('change', (e) => {
         document.getElementById('demoLed3').on = e.detail.checked;
       });
 
-      // ---- Component Playground ----
+      // ---- Multi-Component Interactive Inspector ----
+      let activeTab = 'knob';
+      const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+
       const pgKnob = document.getElementById('pgKnob');
+      const pgSwitch = document.getElementById('pgSwitch');
+      const pgLed = document.getElementById('pgLed');
+
+      const panelKnob = document.getElementById('panel-knob');
+      const panelSwitch = document.getElementById('panel-switch');
+      const panelLed = document.getElementById('panel-led');
+
+      const snippetOut = document.getElementById('snippetOut');
+      const eventLog = document.getElementById('eventLog');
+
+      function logLine(tag, type, payload) {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        line.innerHTML = `<span style="color:#6b7280">[${time}]</span> <span style="color:#93c5fd">&lt;${tag}&gt;</span> <span class="log-type-${type}">${type}</span> → ${payload}`;
+        eventLog.prepend(line);
+        while (eventLog.children.length > 25) {
+          eventLog.removeChild(eventLog.lastChild);
+        }
+      }
+
+      function setTab(tab) {
+        activeTab = tab;
+        tabButtons.forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));
+
+        pgKnob.hidden = tab !== 'knob';
+        pgSwitch.hidden = tab !== 'switch';
+        pgLed.hidden = tab !== 'led';
+
+        panelKnob.hidden = tab !== 'knob';
+        panelSwitch.hidden = tab !== 'switch';
+        panelLed.hidden = tab !== 'led';
+
+        renderActiveSnippet();
+      }
+
+      tabButtons.forEach((btn) => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+
+      // -- Knob Inspector --
       const pgVariant = document.getElementById('pgVariant');
       const pgCap = document.getElementById('pgCap');
       const pgSize = document.getElementById('pgSize');
@@ -3437,10 +3786,8 @@ registerMoogLed('moog-led');
       const pgDetents = document.getElementById('pgDetents');
       const pgArc = document.getElementById('pgArc');
       const pgDisabled = document.getElementById('pgDisabled');
-      const snippetOut = document.getElementById('snippetOut');
-      const eventLog = document.getElementById('eventLog');
 
-      function syncPlayground() {
+      function syncKnob() {
         pgKnob.setAttribute('variant', pgVariant.value);
         pgKnob.setAttribute('cap', pgCap.value);
         pgKnob.setAttribute('size', pgSize.value);
@@ -3494,66 +3841,153 @@ registerMoogLed('moog-led');
             }
           }
         }
-
         if (pgArc.checked) pgKnob.setAttribute('show-arc', '');
         else pgKnob.removeAttribute('show-arc');
-
         if (pgDisabled.checked) pgKnob.setAttribute('disabled', '');
         else pgKnob.removeAttribute('disabled');
 
-        renderSnippet();
+        if (activeTab === 'knob') renderActiveSnippet();
       }
 
-      function renderSnippet() {
-        const attrs = [
-          `label="${pgLabel.value}"`,
-          `variant="${pgVariant.value}"`,
-          `cap="${pgCap.value}"`,
-          `size="${pgSize.value}"`,
-          `min="${pgKnob.min}"`,
-          `max="${pgKnob.max}"`,
-          `value="${pgKnob.value}"`,
-        ];
-        if (pgDragMode.value !== 'vertical') attrs.push(`drag-mode="${pgDragMode.value}"`);
-        if (pgDotColor.value !== '#f3f3ef') attrs.push(`dot-color="${pgDotColor.value}"`);
-        if (pgEndless.checked) {
-          attrs.push('endless');
-          if (pgWrap.checked) attrs.push('wrap', 'unit="°"', 'scale-labels="0°,90°,180°,270°"');
-        } else if (pgDetents.checked) {
-          attrs.push('detents', `scale-labels="LO,32',16',8',4',2'"`);
-        } else if (pgBipolar.checked) {
-          attrs.push('bipolar', 'scale-labels="-5,-3,-1,0,+1,+3,+5"');
-        } else {
-          attrs.push('scale-labels="0,2,4,6,8,10"');
-        }
-        if (pgArc.checked) attrs.push('show-arc');
-        if (pgDisabled.checked) attrs.push('disabled');
-
-        snippetOut.textContent = `<moog-knob\n  ${attrs.join('\n  ')}\n></moog-knob>`;
-      }
-
-      function logEvent(type, detail) {
-        const line = document.createElement('div');
-        line.className = 'log-line';
-        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-        line.innerHTML = `<span style="color:#6b7280">[${time}]</span> <span class="log-type-${type}">${type}</span> → val: ${detail.value}, Δ: ${detail.delta}, turns: ${detail.turns}, fmt: "${detail.formatted}"`;
-        eventLog.prepend(line);
-        while (eventLog.children.length > 25) {
-          eventLog.removeChild(eventLog.lastChild);
-        }
-        renderSnippet();
-      }
-
-      pgKnob.addEventListener('input', (e) => logEvent('input', e.detail));
-      pgKnob.addEventListener('change', (e) => logEvent('change', e.detail));
-
-      [pgVariant, pgCap, pgSize, pgDragMode, pgDotColor, pgLabel, pgEndless, pgWrap, pgBipolar, pgDetents, pgArc, pgDisabled]
-        .forEach((el) => el.addEventListener('input', syncPlayground));
-
-      document.getElementById('clearLogBtn').addEventListener('click', () => {
-        eventLog.innerHTML = '';
+      pgKnob.addEventListener('input', (e) => {
+        logLine('moog-knob', 'input', `val: ${e.detail.value}, Δ: ${e.detail.delta}, turns: ${e.detail.turns}, fmt: "${e.detail.formatted}"`);
+        if (activeTab === 'knob') renderActiveSnippet();
       });
+      pgKnob.addEventListener('change', (e) => {
+        logLine('moog-knob', 'change', `val: ${e.detail.value}, fmt: "${e.detail.formatted}"`);
+        if (activeTab === 'knob') renderActiveSnippet();
+      });
+      [pgVariant, pgCap, pgSize, pgDragMode, pgDotColor, pgLabel, pgEndless, pgWrap, pgBipolar, pgDetents, pgArc, pgDisabled]
+        .forEach((el) => el.addEventListener('input', syncKnob));
 
+      // -- Switch Inspector --
+      const swVariant = document.getElementById('swVariant');
+      const swColor = document.getElementById('swColor');
+      const swOrientation = document.getElementById('swOrientation');
+      const swSize = document.getElementById('swSize');
+      const swLabel = document.getElementById('swLabel');
+      const swOnLabel = document.getElementById('swOnLabel');
+      const swOffLabel = document.getElementById('swOffLabel');
+      const swChecked = document.getElementById('swChecked');
+      const swBacklight = document.getElementById('swBacklight');
+      const swDisabled = document.getElementById('swDisabled');
+
+      function syncSwitch() {
+        pgSwitch.setAttribute('variant', swVariant.value);
+        pgSwitch.setAttribute('color', swColor.value);
+        pgSwitch.setAttribute('orientation', swOrientation.value);
+        pgSwitch.setAttribute('size', swSize.value);
+        pgSwitch.setAttribute('label', swLabel.value);
+        pgSwitch.setAttribute('on-label', swOnLabel.value || 'ON');
+        pgSwitch.setAttribute('off-label', swOffLabel.value || 'OFF');
+        pgSwitch.checked = swChecked.checked;
+        pgSwitch.backlight = swBacklight.checked;
+        pgSwitch.disabled = swDisabled.checked;
+        if (activeTab === 'switch') renderActiveSnippet();
+      }
+
+      pgSwitch.addEventListener('input', (e) => {
+        swChecked.checked = e.detail.checked;
+        logLine('moog-switch', 'input', `checked: ${e.detail.checked}, value: "${e.detail.value}"`);
+        if (activeTab === 'switch') renderActiveSnippet();
+      });
+      pgSwitch.addEventListener('change', (e) => {
+        logLine('moog-switch', 'change', `checked: ${e.detail.checked}, value: "${e.detail.value}"`);
+        if (activeTab === 'switch') renderActiveSnippet();
+      });
+      [swVariant, swColor, swOrientation, swSize, swLabel, swOnLabel, swOffLabel, swChecked, swBacklight, swDisabled]
+        .forEach((el) => el.addEventListener('input', syncSwitch));
+
+      // -- LED Inspector --
+      const ledVariant = document.getElementById('ledVariant');
+      const ledColor = document.getElementById('ledColor');
+      const ledBezel = document.getElementById('ledBezel');
+      const ledSize = document.getElementById('ledSize');
+      const ledLabel = document.getElementById('ledLabel');
+      const ledLabelPos = document.getElementById('ledLabelPos');
+      const ledIntensity = document.getElementById('ledIntensity');
+      const ledIntVal = document.getElementById('ledIntVal');
+      const ledOn = document.getElementById('ledOn');
+      const ledBlink = document.getElementById('ledBlink');
+
+      function syncLed() {
+        pgLed.setAttribute('variant', ledVariant.value);
+        pgLed.setAttribute('color', ledColor.value);
+        pgLed.setAttribute('bezel', ledBezel.value);
+        pgLed.setAttribute('size', ledSize.value);
+        pgLed.setAttribute('label', ledLabel.value);
+        pgLed.setAttribute('label-position', ledLabelPos.value);
+        pgLed.intensity = Number(ledIntensity.value);
+        ledIntVal.textContent = Number(ledIntensity.value).toFixed(2);
+        pgLed.on = ledOn.checked;
+        if (ledBlink.checked) pgLed.setAttribute('blink', '450');
+        else pgLed.removeAttribute('blink');
+        if (activeTab === 'led') {
+          renderActiveSnippet();
+          logLine('moog-led', 'input', `on: ${pgLed.on}, intensity: ${pgLed.intensity.toFixed(2)}, blink: ${ledBlink.checked}`);
+        }
+      }
+
+      [ledVariant, ledColor, ledBezel, ledSize, ledLabel, ledLabelPos, ledIntensity, ledOn, ledBlink]
+        .forEach((el) => el.addEventListener('input', syncLed));
+
+      function renderActiveSnippet() {
+        if (activeTab === 'knob') {
+          const attrs = [
+            `label="${pgLabel.value}"`,
+            `variant="${pgVariant.value}"`,
+            `cap="${pgCap.value}"`,
+            `size="${pgSize.value}"`,
+            `min="${pgKnob.min}"`,
+            `max="${pgKnob.max}"`,
+            `value="${pgKnob.value}"`,
+          ];
+          if (pgDragMode.value !== 'vertical') attrs.push(`drag-mode="${pgDragMode.value}"`);
+          if (pgDotColor.value !== '#f3f3ef') attrs.push(`dot-color="${pgDotColor.value}"`);
+          if (pgEndless.checked) {
+            attrs.push('endless');
+            if (pgWrap.checked) attrs.push('wrap', 'unit="°"', 'scale-labels="0°,90°,180°,270°"');
+          } else if (pgDetents.checked) {
+            attrs.push('detents', `scale-labels="LO,32',16',8',4',2'"`);
+          } else if (pgBipolar.checked) {
+            attrs.push('bipolar', 'scale-labels="-5,-3,-1,0,+1,+3,+5"');
+          } else {
+            attrs.push('scale-labels="0,2,4,6,8,10"');
+          }
+          if (pgArc.checked) attrs.push('show-arc');
+          if (pgDisabled.checked) attrs.push('disabled');
+          snippetOut.textContent = `<moog-knob\n  ${attrs.join('\n  ')}\n></moog-knob>`;
+        } else if (activeTab === 'switch') {
+          const attrs = [
+            `label="${swLabel.value}"`,
+            `variant="${swVariant.value}"`,
+            `color="${swColor.value}"`,
+            `orientation="${swOrientation.value}"`,
+            `size="${swSize.value}"`,
+          ];
+          if (swOnLabel.value !== 'ON') attrs.push(`on-label="${swOnLabel.value}"`);
+          if (swOffLabel.value !== 'OFF') attrs.push(`off-label="${swOffLabel.value}"`);
+          if (!swBacklight.checked) attrs.push('backlight="false"');
+          if (swChecked.checked) attrs.push('checked');
+          if (swDisabled.checked) attrs.push('disabled');
+          snippetOut.textContent = `<moog-switch\n  ${attrs.join('\n  ')}\n></moog-switch>`;
+        } else {
+          const attrs = [
+            `label="${ledLabel.value}"`,
+            `label-position="${ledLabelPos.value}"`,
+            `variant="${ledVariant.value}"`,
+            `color="${ledColor.value}"`,
+            `bezel="${ledBezel.value}"`,
+            `size="${ledSize.value}"`,
+            `intensity="${Number(ledIntensity.value).toFixed(2)}"`,
+          ];
+          if (ledOn.checked) attrs.push('on');
+          if (ledBlink.checked) attrs.push('blink="450"');
+          snippetOut.textContent = `<moog-led\n  ${attrs.join('\n  ')}\n></moog-led>`;
+        }
+      }
+
+      document.getElementById('clearLogBtn').addEventListener('click', () => { eventLog.innerHTML = ''; });
       document.getElementById('copySnippetBtn').addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(snippetOut.textContent);
@@ -3563,7 +3997,10 @@ registerMoogLed('moog-led');
         } catch (_) {}
       });
 
-      syncPlayground();
+      syncKnob();
+      syncSwitch();
+      syncLed();
+      setTab('knob');
     })();
   </script>
 </body>

@@ -10,6 +10,7 @@ export interface MoogSwitchEventDetail {
 
 export class MoogSwitch extends HTMLElement {
   checked: boolean;
+  backlight: boolean;
   readonly value: string;
   disabled: boolean;
   variant: MoogSwitchVariant;
