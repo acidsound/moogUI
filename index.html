@@ -1101,7 +1101,8 @@
  * High-instance-count optimized:
  *  - Shared adoptedStyleSheets (single parsed CSSStyleSheet across all instances)
  *  - Memoized 6-lobe & winged-pointer SVG geometry cache
- *  - CSS `contain: layout style paint` isolation per knob
+ *  - CSS `contain` isolation at dial-stage layer (host retains layout/style only,
+ *    so focus rings and glows that paint past the host box are never clipped)
  *  - rAF-coalesced pointermove updates & drag-scoped `will-change: transform`
  *  - Microtask-batched attribute re-renders & lazy hover/focus wheel listeners
  */
@@ -1274,7 +1275,7 @@ const KNOB_CSS_TEXT = `
     user-select: none;
     -webkit-user-select: none;
     vertical-align: top;
-    contain: layout style paint;
+    contain: layout style;
     --moog-label-color: #e8e6df;
     --moog-tick-color: rgba(236, 234, 226, 0.85);
     --moog-tick-minor-color: rgba(236, 234, 226, 0.42);
@@ -1296,6 +1297,7 @@ const KNOB_CSS_TEXT = `
   .dial-stage {
     position: relative; width: var(--_widget-w, 145px); height: var(--_widget-w, 145px);
     cursor: ns-resize; touch-action: pan-y; outline: none; border-radius: 50%;
+    contain: layout style paint;
   }
   .skirt-base, .rot-skirt, .rot-body-base, .rot-body-top { touch-action: none; }
   .dial-stage.is-active .rot-skirt,
@@ -2704,7 +2706,8 @@ registerMoogSwitch('moog-switch');
  *
  * High-instance-count optimized:
  *  - Shared adoptedStyleSheets singleton across all LED instances
- *  - CSS `contain: layout style paint` isolation
+ *  - CSS `contain` isolation at bulb layer (host retains layout/style only,
+ *    so the halo glow paints past the host box unclipped)
  *  - Static halo box-shadow animated purely via GPU `opacity` (zero repaint)
  *  - Zero-JS CSS `@keyframes` blink (0 `setInterval` timers even with 100+ LEDs)
  */
@@ -2726,7 +2729,7 @@ const LED_CSS_TEXT = `
     justify-content: center;
     user-select: none;
     vertical-align: middle;
-    contain: layout style paint;
+    contain: layout style;
     --moog-label-color: rgba(232, 230, 223, 0.72);
     font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
@@ -2765,6 +2768,7 @@ const LED_CSS_TEXT = `
   }
   .bulb {
     width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+    contain: paint;
     background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--_led-mid) 35%, transparent) 0%, var(--_led-dark) 75%, #09090b 100%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
   }

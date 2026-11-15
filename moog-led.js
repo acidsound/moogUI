@@ -3,7 +3,8 @@
  *
  * High-instance-count optimized:
  *  - Shared adoptedStyleSheets singleton across all LED instances
- *  - CSS `contain: layout style paint` isolation
+ *  - CSS `contain` isolation at bulb layer (host retains layout/style only,
+ *    so the halo glow paints past the host box unclipped)
  *  - Static halo box-shadow animated purely via GPU `opacity` (zero repaint)
  *  - Zero-JS CSS `@keyframes` blink (0 `setInterval` timers even with 100+ LEDs)
  */
@@ -25,7 +26,7 @@ const LED_CSS_TEXT = `
     justify-content: center;
     user-select: none;
     vertical-align: middle;
-    contain: layout style paint;
+    contain: layout style;
     --moog-label-color: rgba(232, 230, 223, 0.72);
     font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
@@ -64,6 +65,7 @@ const LED_CSS_TEXT = `
   }
   .bulb {
     width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+    contain: paint;
     background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--_led-mid) 35%, transparent) 0%, var(--_led-dark) 75%, #09090b 100%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.85);
   }

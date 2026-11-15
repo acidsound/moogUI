@@ -4,7 +4,8 @@
  * High-instance-count optimized:
  *  - Shared adoptedStyleSheets (single parsed CSSStyleSheet across all instances)
  *  - Memoized 6-lobe & winged-pointer SVG geometry cache
- *  - CSS `contain: layout style paint` isolation per knob
+ *  - CSS `contain` isolation at dial-stage layer (host retains layout/style only,
+ *    so focus rings and glows that paint past the host box are never clipped)
  *  - rAF-coalesced pointermove updates & drag-scoped `will-change: transform`
  *  - Microtask-batched attribute re-renders & lazy hover/focus wheel listeners
  */
@@ -177,7 +178,7 @@ const KNOB_CSS_TEXT = `
     user-select: none;
     -webkit-user-select: none;
     vertical-align: top;
-    contain: layout style paint;
+    contain: layout style;
     --moog-label-color: #e8e6df;
     --moog-tick-color: rgba(236, 234, 226, 0.85);
     --moog-tick-minor-color: rgba(236, 234, 226, 0.42);
@@ -199,6 +200,7 @@ const KNOB_CSS_TEXT = `
   .dial-stage {
     position: relative; width: var(--_widget-w, 145px); height: var(--_widget-w, 145px);
     cursor: ns-resize; touch-action: pan-y; outline: none; border-radius: 50%;
+    contain: layout style paint;
   }
   .skirt-base, .rot-skirt, .rot-body-base, .rot-body-top { touch-action: none; }
   .dial-stage.is-active .rot-skirt,
