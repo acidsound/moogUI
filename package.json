@@ -29,9 +29,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/acidsound/knobComponent.git"
+    "url": "git+https://github.com/acidsound/moogUI.git"
   },
-  "homepage": "https://acidsound.github.io/knobComponent/",
+  "homepage": "https://acidsound.github.io/moogUI/",
   "keywords": [
     "web-components",
     "custom-elements",

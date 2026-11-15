@@ -2,7 +2,7 @@
 
 Minimoog Model D 하드웨어 컨트롤을 충실하게 재현한 **의존성 없는 순수 Web Components UI 키트**입니다.
 
-- **GitHub Pages 라이브 데모**: https://acidsound.github.io/knobComponent/
+- **GitHub Pages 라이브 데모**: https://acidsound.github.io/moogUI/
 
 ## 포함 컴포넌트
 
